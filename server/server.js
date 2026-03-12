@@ -104,7 +104,13 @@ const budgetRoutes = require('./routes/budgetRoutes');
 // Ensure DB is connected before any API request (serverless-safe)
 app.use('/api', async (req, res, next) => {
     try {
-        await connectDatabase();
+        const connected = await connectDatabase();
+        if (!connected) {
+            return res.status(503).json({
+                error: 'Database unavailable',
+                message: 'Failed to connect to MongoDB. Check Atlas network access and credentials.'
+            });
+        }
         next();
     } catch (err) {
         res.status(503).json({ error: 'Database unavailable', message: err.message });
@@ -227,6 +233,7 @@ async function connectDatabase() {
         
     } catch (err) {
         console.error('❌ Failed to connect to MongoDB:');
+        console.error('MongoDB connect failed:', err.name, err.message);
         console.error('   Error Name:', err.name);
         console.error('   Error Message:', err.message);
         console.error('   Error Code:', err.code);

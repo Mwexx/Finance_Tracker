@@ -2,6 +2,11 @@
   "name": "finance-tracker",
   "version": "1.0.0",
   "description": "Personal Finance Tracker with Automated Budget Alerts",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node --watch server/server.js"
+  },
   "engines": {
     "node": "20.x"
   },

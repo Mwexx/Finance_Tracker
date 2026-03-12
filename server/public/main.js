@@ -2,7 +2,7 @@
 // Personal Finance Tracker - Frontend JavaScript
 // ============================================================
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = '/api';
 
 // ── Utility Helpers ──────────────────────────────────────────
 
@@ -282,6 +282,15 @@ if (dashboardContainer) {
 
     // ── Bar Chart (Budget vs Actual) ─────────────────────────
 
+    function currentMonthExpenses(transactions) {
+        var now = new Date();
+        return transactions.filter(function(t) {
+            if (t.type !== 'expense') return false;
+            var d = new Date(t.date);
+            return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+        });
+    }
+
     function renderBarChart(transactions, budgets) {
         var ctx = document.getElementById('barChart');
 
@@ -294,11 +303,16 @@ if (dashboardContainer) {
         ctx.style.display = 'block';
         document.getElementById('bar-empty').style.display = 'none';
 
+        var now = new Date();
+        var monthLabel = now.toLocaleString('default', { month: 'long', year: 'numeric' });
+        document.getElementById('bar-month-label').textContent = '— ' + monthLabel;
+
+        var monthExpenses = currentMonthExpenses(transactions);
         var categories = budgets.map(function(b) { return b.category; });
         var limits     = budgets.map(function(b) { return b.limit; });
         var spent      = categories.map(function(cat) {
-            return transactions
-                .filter(function(t) { return t.type === 'expense' && t.category === cat; })
+            return monthExpenses
+                .filter(function(t) { return t.category === cat; })
                 .reduce(function(sum, t) { return sum + t.amount; }, 0);
         });
 
@@ -364,9 +378,10 @@ if (dashboardContainer) {
             container.innerHTML = '<p class="empty-msg">No budgets set yet.</p>';
             return;
         }
+        var monthExpenses = currentMonthExpenses(transactions);
         container.innerHTML = budgets.map(function(b) {
-            var spent = transactions
-                .filter(function(t) { return t.type === 'expense' && t.category === b.category; })
+            var spent = monthExpenses
+                .filter(function(t) { return t.category === b.category; })
                 .reduce(function(sum, t) { return sum + t.amount; }, 0);
             var pct         = Math.min((spent / b.limit) * 100, 100);
             var statusClass = pct >= 100 ? 'danger' : pct >= 80 ? 'warning' : 'safe';

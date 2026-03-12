@@ -114,7 +114,14 @@ async function checkBudgetAlert(userId, category) {
         const budget = await Budget.findOne({ userId, category });
         if (!budget) return;
 
-        const transactions = await Transaction.find({ userId, type: 'expense', category });
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+        const transactions = await Transaction.find({
+            userId, type: 'expense', category,
+            date: { $gte: monthStart, $lte: monthEnd }
+        });
         const totalSpent = transactions.reduce((sum, t) => sum + t.amount, 0);
         const percentage = (totalSpent / budget.limit) * 100;
 

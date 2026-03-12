@@ -13,10 +13,10 @@ Finance-TrackerDocummentation/
 server/test-db.js
 
 # Old root-level controllers (stale copies - live code is in server/)
-controllers/
-models/
-middleware/
-utils/
+/controllers/
+/models/
+/middleware/
+/utils/
 
 # Logs
 *.log

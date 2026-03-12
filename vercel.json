@@ -1,11 +1,17 @@
 {
   "version": 2,
+  "buildCommand": "echo 'Build skipped'",
   "builds": [
     {
       "src": "index.js",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": "server/**"
+        "zeroConfig": true,
+        "includeFiles": [
+          "server/**/*.js",
+          "server/**/*.json",
+          "server/public/**/*"
+        ]
       }
     }
   ],

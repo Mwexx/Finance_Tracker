@@ -240,6 +240,16 @@ async function connectDatabase() {
         
         // Provide helpful troubleshooting tips
         if (err.code === 'ECONNREFUSED') {
+            const errInfo = { name: err.name, code: err.code, message: err.message ? err.message.substring(0, 300) : null };
+            if (err.reason && err.reason.servers) {
+                errInfo.servers = {};
+                err.reason.servers.forEach((v, k) => {
+                    errInfo.servers[k] = v && v.error ? { name: v.error.name, msg: String(v.error.message || '').substring(0, 150) } : 'no-error';
+                });
+            }
+            console.error('MongoDB connect details:', JSON.stringify(errInfo));
+
+            if (err.code === 'ECONNREFUSED') {
             console.error('\n💡 Troubleshooting Tips:');
             console.error('   1. Ensure MongoDB is running: "net start MongoDB" (Windows)');
             console.error('   2. Check if port 27017 is in use: "netstat -ano | findstr :27017"');

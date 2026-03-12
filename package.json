@@ -2,6 +2,9 @@
   "name": "finance-tracker",
   "version": "1.0.0",
   "description": "Personal Finance Tracker with Automated Budget Alerts",
+  "engines": {
+    "node": "18.x"
+  },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.6",

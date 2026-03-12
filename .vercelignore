@@ -1,17 +1,22 @@
-# Root-level node_modules (not used — server/ has its own)
-node_modules/
-
-# Root package files (not the server's)
-package.json
-package-lock.json
+# Development/local only
+server/node_modules/
+server/.env
 
 # Git
 .git/
-.gitignore
 
-# Development files
+# Documentation
 *.md
 Finance-TrackerDocummentation/
+
+# Test files
+server/test-db.js
+
+# Old root-level controllers (stale copies - live code is in server/)
+controllers/
+models/
+middleware/
+utils/
 
 # Logs
 *.log

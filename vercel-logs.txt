@@ -1,8 +1,0 @@
-﻿node.exe : Error: unknown or unexpected option: --output
-At C:\Users\mwexx\AppData\Roaming\npm\vercel.ps1:24 char:5
-+     & "node$exe"  "$basedir/node_modules/vercel/dist/vc.js" $args
-+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (Error: unknown ...ption: --output 
-   :String) [], RemoteException
-    + FullyQualifiedErrorId : NativeCommandError
- 

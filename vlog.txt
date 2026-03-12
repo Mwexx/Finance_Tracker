@@ -1,0 +1,9 @@
+﻿node.exe : Error: Your codebase isn't linked to a project on Vercel. Run 
+`vercel link` to begin, or specify a project with --project.
+At C:\Users\mwexx\AppData\Roaming\npm\vercel.ps1:24 char:5
++     & "node$exe"  "$basedir/node_modules/vercel/dist/vc.js" $args
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Error: Your cod...with --project. 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 

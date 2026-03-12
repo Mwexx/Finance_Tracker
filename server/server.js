@@ -30,12 +30,10 @@ console.log('');
 
 // Validate critical environment variables
 if (!process.env.MONGO_URI) {
-    console.error('❌ FATAL: MONGO_URI is not set in .env file');
-    process.exit(1);
+    console.error('❌ WARNING: MONGO_URI is not set');
 }
 if (!process.env.JWT_SECRET) {
-    console.error('❌ FATAL: JWT_SECRET is not set in .env file');
-    process.exit(1);
+    console.error('❌ WARNING: JWT_SECRET is not set');
 }
 
 // ============================================
@@ -53,8 +51,9 @@ app.use(cors({
     origin: [
         'http://localhost:5000',
         'http://127.0.0.1:5000',
-        'http://localhost:5500',  // VS Code Live Server (fallback)
-        'http://127.0.0.1:5500'
+        'http://localhost:5500',
+        'http://127.0.0.1:5500',
+        /\.vercel\.app$/
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -78,8 +77,7 @@ console.log(`📁 Serving static files from: ${publicPath}`);
 // Verify public folder exists
 if (!fs.existsSync(publicPath)) {
     console.warn('⚠️  Warning: public folder not found at:', publicPath);
-    console.warn('   Creating empty public folder...');
-    fs.mkdirSync(publicPath, { recursive: true });
+    try { fs.mkdirSync(publicPath, { recursive: true }); } catch (e) { /* read-only fs in serverless */ }
 }
 
 app.use(express.static(publicPath));

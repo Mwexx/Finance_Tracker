@@ -25,3 +25,5 @@ build/
 
 # Test database files
 server/test-db.js
+.vercel
+.env*.local

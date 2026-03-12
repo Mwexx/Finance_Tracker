@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Finance Tracker - Sign In</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="auth-page">
+    <div class="auth-wrapper">
+        <div class="auth-brand">
+            <div class="brand-logo">&#128176;</div>
+            <h1>Personal Finance Tracker</h1>
+            <p>Track spending. Set budgets. Get alerts.</p>
+        </div>
+        <div class="auth-card">
+            <h2 id="form-title">Welcome Back</h2>
+            <p class="auth-subtitle" id="form-subtitle">Sign in to your account</p>
+            <form id="auth-form" novalidate>
+                <div class="field-group" id="name-group" style="display:none;">
+                    <label for="name">Full Name</label>
+                    <input type="text" id="name" placeholder="John Doe" autocomplete="name">
+                </div>
+                <div class="field-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" placeholder="you@example.com" required autocomplete="email">
+                </div>
+                <div class="field-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" required autocomplete="current-password">
+                </div>
+                <p id="auth-error" class="error-text"></p>
+                <button type="submit" id="auth-submit-btn" class="btn-primary">Sign In</button>
+            </form>
+            <p class="auth-switch">
+                <span id="auth-switch-label">Don't have an account?</span>
+                <a id="toggle-form" href="#"> Register here</a>
+            </p>
+        </div>
+    </div>
+    <script src="main.js"></script>
+</body>
+</html>

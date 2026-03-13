@@ -5,6 +5,9 @@ server/node_modules/
 # Environment variables (never commit these)
 .env
 server/.env
+.env.*
+!.env.example
+!.env.sample
 
 # Logs
 *.log
@@ -27,3 +30,18 @@ build/
 server/test-db.js
 .vercel
 .env*.local
+
+# Local helper scripts and temp files that may include secrets
+input.txt
+set-env.bat
+set-env.ps1
+set-vercel-env.js
+
+# Common local secret/key artifacts
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.secrets

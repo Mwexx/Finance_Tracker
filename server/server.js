@@ -21,19 +21,19 @@ const fs = require('fs');
 dotenv.config({ path: path.join(__dirname, '.env') });
 
 // Debug: Log loaded environment variables (remove in production)
-console.log('\n🔧 Environment Configuration:');
+console.log('\n[Config] Environment Configuration:');
 console.log('   PORT:', process.env.PORT || '5000 (default)');
-console.log('   MONGO_URI:', process.env.MONGO_URI ? '✓ Set' : '✗ MISSING');
-console.log('   JWT_SECRET:', process.env.JWT_SECRET ? '✓ Set' : '✗ MISSING');
+console.log('   MONGO_URI:', process.env.MONGO_URI ? 'Set' : 'MISSING');
+console.log('   JWT_SECRET:', process.env.JWT_SECRET ? 'Set' : 'MISSING');
 console.log('   NODE_ENV:', process.env.NODE_ENV || 'development');
 console.log('');
 
 // Validate critical environment variables
 if (!process.env.MONGO_URI) {
-    console.error('❌ WARNING: MONGO_URI is not set');
+    console.error('WARNING: MONGO_URI is not set');
 }
 if (!process.env.JWT_SECRET) {
-    console.error('❌ WARNING: JWT_SECRET is not set');
+    console.error('WARNING: JWT_SECRET is not set');
 }
 
 // ============================================
@@ -72,11 +72,11 @@ app.use(express.urlencoded({
 
 // Serve static files from 'public' directory
 const publicPath = path.join(__dirname, 'public');
-console.log(`📁 Serving static files from: ${publicPath}`);
+console.log(`Serving static files from: ${publicPath}`);
 
 // Verify public folder exists
 if (!fs.existsSync(publicPath)) {
-    console.warn('⚠️  Warning: public folder not found at:', publicPath);
+    console.warn('Warning: public folder not found at:', publicPath);
     try { fs.mkdirSync(publicPath, { recursive: true }); } catch (e) { /* read-only fs in serverless */ }
 }
 
@@ -85,7 +85,7 @@ app.use(express.static(publicPath));
 // Request logging middleware (development only)
 if (process.env.NODE_ENV === 'development') {
     app.use((req, res, next) => {
-        console.log(`📡 ${new Date().toISOString()} - ${req.method} ${req.path}`);
+        console.log(`[Request] ${new Date().toISOString()} - ${req.method} ${req.path}`);
         next();
     });
 }
@@ -177,7 +177,7 @@ app.get('*', (req, res) => {
 // 8. GLOBAL ERROR HANDLER
 // ============================================
 app.use((err, req, res, next) => {
-    console.error('❌ Unhandled Error:', err.stack);
+    console.error('Unhandled Error:', err.stack);
     
     // Don't leak error details in production
     const isProduction = process.env.NODE_ENV === 'production';
@@ -203,7 +203,7 @@ async function connectDatabase() {
     const state = mongoose.connection.readyState;
     if (state === 1) return true; // already connected
     if (state === 2) {
-        // Currently connecting — wait for it
+        // Currently connecting, wait for it
         await new Promise((resolve, reject) => {
             mongoose.connection.once('connected', resolve);
             mongoose.connection.once('error', reject);
@@ -212,154 +212,110 @@ async function connectDatabase() {
     }
 
     try {
-        console.log('🔌 Connecting to MongoDB...');
+        console.log('Connecting to MongoDB...');
         
         await mongoose.connect(process.env.MONGO_URI, {
             serverSelectionTimeoutMS: 10000,
         });
         
-        console.log('✅ MongoDB Connected Successfully');
+        console.log('MongoDB Connected Successfully');
         
         // Listen for connection events (only register once)
         mongoose.connection.on('error', (err) => {
-            console.error('❌ MongoDB Connection Error:', err.message);
+            console.error('MongoDB Connection Error:', err.message);
         });
         
         mongoose.connection.on('disconnected', () => {
-            console.warn('⚠️  MongoDB Disconnected');
+            console.warn('MongoDB Disconnected');
         });
         
         return true;
         
     } catch (err) {
-        console.error('❌ Failed to connect to MongoDB:');
-        console.error('MongoDB connect failed:', err.name, err.message);
-        console.error('   Error Name:', err.name);
-        console.error('   Error Message:', err.message);
-        console.error('   Error Code:', err.code);
-        
-        // Provide helpful troubleshooting tips
-        if (err.code === 'ECONNREFUSED') {
-            const errInfo = { name: err.name, code: err.code, message: err.message ? err.message.substring(0, 300) : null };
-            if (err.reason && err.reason.servers) {
-                errInfo.servers = {};
-                err.reason.servers.forEach((v, k) => {
-                    errInfo.servers[k] = v && v.error ? { name: v.error.name, msg: String(v.error.message || '').substring(0, 150) } : 'no-error';
-                });
-            }
-            console.error('MongoDB connect details:', JSON.stringify(errInfo));
-
-            if (err.code === 'ECONNREFUSED') {
-            console.error('\n💡 Troubleshooting Tips:');
-            console.error('   1. Ensure MongoDB is running: "net start MongoDB" (Windows)');
-            console.error('   2. Check if port 27017 is in use: "netstat -ano | findstr :27017"');
-            console.error('   3. Verify MONGO_URI in .env file');
-            console.error('   4. Try using "localhost" instead of "127.0.0.1" or vice versa');
+        const errInfo = { name: err.name, code: err.code || null, message: err.message ? err.message.substring(0, 300) : null };
+        if (err.reason && err.reason.servers) {
+            errInfo.servers = {};
+            err.reason.servers.forEach((v, k) => {
+                errInfo.servers[k] = v && v.error ? { name: v.error.name, msg: String(v.error.message || '').substring(0, 150) } : 'no-error';
+            });
         }
-        
-        if (err.name === 'MongoServerSelectionError') {
-            console.error('\n💡 This usually means:');
-            console.error('   - MongoDB service is not running');
-            console.error('   - Wrong connection string in .env');
-            console.error('   - Firewall blocking connection');
-        }
-        
+        console.error('MongoDB connect failed:', JSON.stringify(errInfo));
         return false;
     }
 }
 
 /**
- * Start the Express server
+ * Start the Express server for local development.
  */
 function startServer() {
     return new Promise((resolve, reject) => {
         const server = app.listen(PORT, () => {
-            console.log(`\n🚀 Server running on port ${PORT}`);
-            console.log(`📱 Frontend: http://localhost:${PORT}`);
-            console.log(`🔗 API Base: http://localhost:${PORT}/api`);
-            console.log(`🏥 Health Check: http://localhost:${PORT}/api/health\n`);
+            console.log(`Server running on port ${PORT}`);
+            console.log(`Frontend: http://localhost:${PORT}`);
+            console.log(`API Base: http://localhost:${PORT}/api`);
+            console.log(`Health Check: http://localhost:${PORT}/api/health`);
             resolve(server);
         });
-        
+
         server.on('error', (err) => {
-            console.error('❌ Failed to start server:', err.message);
-            
+            console.error('Failed to start server:', err.message);
+
             if (err.code === 'EADDRINUSE') {
-                console.error(`\n💡 Port ${PORT} is already in use.`);
-                console.error('   Try one of these:');
-                console.error(`   1. Kill the process: netstat -ano | findstr :${PORT} → taskkill /PID <PID> /F`);
-                console.error(`   2. Use a different port: Change PORT in .env file`);
+                console.error(`Port ${PORT} is already in use.`);
             }
-            
+
             reject(err);
         });
     });
 }
 
 /**
- * Graceful shutdown handler
+ * Graceful shutdown handler for local runs.
  */
 async function gracefulShutdown(signal) {
-    console.log(`\n🛑 Received ${signal}. Shutting down gracefully...`);
-    
-    // Close HTTP server
+    console.log(`Received ${signal}. Shutting down...`);
+
     await new Promise((resolve) => {
         mongoose.connection.close(() => {
-            console.log('✅ MongoDB connection closed');
+            console.log('MongoDB connection closed');
             resolve();
         });
     });
-    
-    console.log('✅ Shutdown complete');
+
     process.exit(0);
 }
 
-// Handle shutdown signals
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-
-// Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
-    console.error('❌ Unhandled Promise Rejection:', err);
+    console.error('Unhandled Promise Rejection:', err);
     gracefulShutdown('UNHANDLED_REJECTION');
 });
 
-// ============================================
-// 10. APPLICATION INITIALIZATION
-// ============================================
-
 /**
- * Main application bootstrap function
+ * Main application bootstrap for local development.
  */
 async function bootstrap() {
-    console.log('\n' + '='.repeat(50));
-    console.log('🏦 Personal Finance Tracker - Starting Up');
-    console.log('='.repeat(50) + '\n');
-    
-    // Step 1: Connect to database
     const dbConnected = await connectDatabase();
-    
+
     if (!dbConnected) {
-        console.error('\n❌ Cannot start application without database connection');
-        console.error('   Fix the MongoDB connection issue and restart the server');
+        console.error('Cannot start application without database connection');
         process.exit(1);
     }
-    
-    // Step 2: Start HTTP server
+
     try {
         await startServer();
-        console.log('✅ Application started successfully!\n');
     } catch (err) {
-        console.error('\n❌ Failed to start HTTP server');
+        console.error('Failed to start HTTP server');
         process.exit(1);
     }
 }
 
-// Start the application when run directly (local dev)
-// In Vercel/serverless, the exported app is used instead
+// Start the app only when this file is executed directly.
 if (require.main === module) {
     bootstrap();
 }
 
-// Export app for Vercel serverless and testing
+// Export app for Vercel serverless and tests.
 module.exports = app;
+

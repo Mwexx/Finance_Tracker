@@ -307,24 +307,34 @@ app.use(mongoSanitize({ replaceWith: '_' }));
 app.use('/api', apiLimiter);
 app.use('/api/auth', authLimiter);
 
-// Serve static files from the root-level public directory.
-const publicPath = path.resolve(__dirname, '..', 'public');
-console.log(`Serving static files from: ${publicPath}`);
+const frontendRoot = path.resolve(__dirname, '..');
+console.log(`Serving frontend files from: ${frontendRoot}`);
 
-// Verify public folder exists
-if (!fs.existsSync(publicPath)) {
-    console.warn('Warning: public folder not found at:', publicPath);
-    try { fs.mkdirSync(publicPath, { recursive: true }); } catch (e) { /* read-only fs in serverless */ }
+function sendFrontendFile(res, fileName) {
+    const filePath = path.join(frontendRoot, fileName);
+
+    if (!fs.existsSync(filePath)) {
+        return false;
+    }
+
+    if (fileName.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-store');
+    }
+
+    res.sendFile(filePath);
+    return true;
 }
 
-app.use(express.static(publicPath, {
-    index: false,
-    setHeaders: function(res, filePath) {
-        if (filePath.endsWith('.html')) {
-            res.setHeader('Cache-Control', 'no-store');
-        }
+app.get(['/index.html', '/dashboard.html', '/main.js', '/style.css'], (req, res) => {
+    const fileName = path.basename(req.path);
+
+    if (!sendFrontendFile(res, fileName)) {
+        return res.status(404).json({
+            error: 'Frontend asset not found',
+            message: `Please ensure ${fileName} exists in the project root`
+        });
     }
-}));
+});
 
 // ============================================
 // 5. IMPORT ROUTES
@@ -373,40 +383,31 @@ app.get('/api/health', (req, res) => {
 
 // Home page - Login/Register
 app.get('/', (req, res) => {
-    const indexPath = path.join(publicPath, 'index.html');
-    
-    if (fs.existsSync(indexPath)) {
-        res.sendFile(indexPath);
-    } else {
+    if (!sendFrontendFile(res, 'index.html')) {
         res.status(404).json({ 
             error: 'Frontend not found', 
-            message: 'Please ensure public/index.html exists' 
+            message: 'Please ensure index.html exists in the project root' 
         });
     }
 });
 
 // Dashboard page - Main application
 app.get('/dashboard', (req, res) => {
-    const dashboardPath = path.join(publicPath, 'dashboard.html');
-    
-    if (fs.existsSync(dashboardPath)) {
-        res.sendFile(dashboardPath);
-    } else {
+    if (!sendFrontendFile(res, 'dashboard.html')) {
         res.status(404).json({ 
             error: 'Dashboard not found', 
-            message: 'Please ensure public/dashboard.html exists' 
+            message: 'Please ensure dashboard.html exists in the project root' 
         });
     }
 });
 
 // Catch-all for undefined routes (return frontend for SPA behavior)
 app.get('*', (req, res) => {
-    const indexPath = path.join(publicPath, 'index.html');
-    if (fs.existsSync(indexPath) && !req.path.startsWith('/api')) {
-        res.sendFile(indexPath);
-    } else {
-        res.status(404).json({ error: 'Route not found' });
+    if (!req.path.startsWith('/api') && sendFrontendFile(res, 'index.html')) {
+        return;
     }
+
+    res.status(404).json({ error: 'Route not found' });
 });
 
 // ============================================

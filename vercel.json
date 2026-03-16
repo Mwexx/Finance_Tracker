@@ -7,7 +7,10 @@
       "config": {
         "includeFiles": [
           "server/**",
-          "public/**"
+          "index.html",
+          "dashboard.html",
+          "main.js",
+          "style.css"
         ]
       }
     }

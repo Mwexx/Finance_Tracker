@@ -18,6 +18,7 @@ const hpp = require('hpp');
 const mongoSanitize = require('express-mongo-sanitize');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 // ============================================
 // 2. LOAD ENVIRONMENT VARIABLES
@@ -45,10 +46,129 @@ if (!process.env.JWT_SECRET) {
 // ============================================
 const app = express();
 const PORT = process.env.PORT || 5000;
+const FAILED_AUTH_WINDOW_MS = 15 * 60 * 1000;
+const FAILED_AUTH_THRESHOLD = 6;
+const failedAuthAttempts = new Map();
+
+const suspiciousPayloadPatterns = [
+    { name: 'mongo-operator', regex: /\$(where|gt|gte|lt|lte|ne|regex|expr|function)\b/i },
+    { name: 'script-tag', regex: /<\s*script\b/i },
+    { name: 'javascript-uri', regex: /javascript\s*:/i },
+    { name: 'sql-union-select', regex: /union\s+select/i },
+    { name: 'sql-tautology', regex: /\bor\b\s+1\s*=\s*1/i },
+    { name: 'path-traversal', regex: /\.\.\// }
+];
 
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 mongoose.set('sanitizeFilter', true);
+
+function getClientIp(req) {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (forwarded) {
+        return String(forwarded).split(',')[0].trim();
+    }
+    return req.ip || req.socket?.remoteAddress || 'unknown';
+}
+
+function truncateForLog(value, maxLength) {
+    return String(value || '').replace(/\s+/g, ' ').trim().slice(0, maxLength);
+}
+
+function safeSerializeForInspection(value) {
+    try {
+        return JSON.stringify(value || {});
+    } catch {
+        return '';
+    }
+}
+
+function logRequestEvent(level, eventName, payload) {
+    const record = {
+        timestamp: new Date().toISOString(),
+        event: eventName,
+        ...payload
+    };
+
+    const serialized = JSON.stringify(record);
+    if (level === 'error') {
+        console.error(serialized);
+        return;
+    }
+    if (level === 'warn') {
+        console.warn(serialized);
+        return;
+    }
+    console.log(serialized);
+}
+
+function logSecurityEvent(eventType, req, details) {
+    logRequestEvent('warn', 'security', {
+        securityEvent: eventType,
+        requestId: req?.requestId || null,
+        method: req?.method || null,
+        path: req?.originalUrl || null,
+        ip: req ? getClientIp(req) : null,
+        userAgent: req ? truncateForLog(req.headers['user-agent'], 180) : null,
+        details: details || {}
+    });
+}
+
+function findSuspiciousPattern(req) {
+    const candidates = [
+        req.originalUrl || '',
+        safeSerializeForInspection(req.query),
+        safeSerializeForInspection(req.body)
+    ];
+
+    for (const pattern of suspiciousPayloadPatterns) {
+        if (candidates.some((value) => pattern.regex.test(value))) {
+            return pattern.name;
+        }
+    }
+    return null;
+}
+
+function trackFailedAuthAttempt(req, statusCode) {
+    if (!req.originalUrl.startsWith('/api')) return;
+
+    const ip = getClientIp(req);
+    const now = Date.now();
+    const current = failedAuthAttempts.get(ip);
+
+    let nextState = current;
+    if (!nextState || (now - nextState.firstSeenAt) > FAILED_AUTH_WINDOW_MS) {
+        nextState = {
+            count: 0,
+            firstSeenAt: now,
+            lastSeenAt: now,
+            lastPath: req.originalUrl
+        };
+    }
+
+    nextState.count += 1;
+    nextState.lastSeenAt = now;
+    nextState.lastPath = req.originalUrl;
+    failedAuthAttempts.set(ip, nextState);
+
+    if (nextState.count >= FAILED_AUTH_THRESHOLD) {
+        logSecurityEvent('repeated_auth_failures', req, {
+            count: nextState.count,
+            windowMs: FAILED_AUTH_WINDOW_MS,
+            statusCode,
+            lastPath: nextState.lastPath
+        });
+    }
+}
+
+setInterval(() => {
+    const now = Date.now();
+    for (const [ip, state] of failedAuthAttempts.entries()) {
+        if ((now - state.lastSeenAt) > FAILED_AUTH_WINDOW_MS) {
+            failedAuthAttempts.delete(ip);
+        }
+    }
+}, 5 * 60 * 1000).unref();
 
 // ============================================
 // 4. CONFIGURE MIDDLEWARE
@@ -66,7 +186,15 @@ const apiLimiter = rateLimit({
     max: 300,
     standardHeaders: true,
     legacyHeaders: false,
-    message: { msg: 'Too many requests. Please try again in a few minutes.' }
+    message: { msg: 'Too many requests. Please try again in a few minutes.' },
+    handler: (req, res) => {
+        logSecurityEvent('rate_limit_exceeded', req, {
+            scope: 'api',
+            limit: 300,
+            windowMs: 15 * 60 * 1000
+        });
+        res.status(429).json({ msg: 'Too many requests. Please try again in a few minutes.' });
+    }
 });
 
 const authLimiter = rateLimit({
@@ -74,7 +202,15 @@ const authLimiter = rateLimit({
     max: 20,
     standardHeaders: true,
     legacyHeaders: false,
-    message: { msg: 'Too many authentication attempts. Please try again later.' }
+    message: { msg: 'Too many authentication attempts. Please try again later.' },
+    handler: (req, res) => {
+        logSecurityEvent('auth_rate_limit_exceeded', req, {
+            scope: 'auth',
+            limit: 20,
+            windowMs: 15 * 60 * 1000
+        });
+        res.status(429).json({ msg: 'Too many authentication attempts. Please try again later.' });
+    }
 });
 
 app.use(helmet({
@@ -104,6 +240,10 @@ app.use(cors({
         if (allowedOrigins.has(origin) || /\.vercel\.app$/i.test(origin)) {
             return callback(null, true);
         }
+        logRequestEvent('warn', 'security', {
+            securityEvent: 'blocked_cors_origin',
+            origin: truncateForLog(origin, 180)
+        });
         return callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
@@ -112,6 +252,35 @@ app.use(cors({
 }));
 
 app.use(hpp());
+
+// Centralized request logging with per-request correlation IDs.
+app.use((req, res, next) => {
+    const startedAt = process.hrtime.bigint();
+    req.requestId = String(req.headers['x-request-id'] || crypto.randomUUID());
+    res.setHeader('x-request-id', req.requestId);
+
+    res.on('finish', () => {
+        const elapsedNs = process.hrtime.bigint() - startedAt;
+        const durationMs = Number(elapsedNs) / 1e6;
+        const level = res.statusCode >= 500 ? 'error' : 'info';
+
+        logRequestEvent(level, 'request', {
+            requestId: req.requestId,
+            method: req.method,
+            path: req.originalUrl,
+            statusCode: res.statusCode,
+            durationMs: Number(durationMs.toFixed(2)),
+            ip: getClientIp(req),
+            userAgent: truncateForLog(req.headers['user-agent'], 180)
+        });
+
+        if (res.statusCode === 401 || res.statusCode === 403) {
+            trackFailedAuthAttempt(req, res.statusCode);
+        }
+    });
+
+    next();
+});
 
 // Body parsing middleware
 app.use(express.json({ 
@@ -122,6 +291,18 @@ app.use(express.urlencoded({
     extended: true,
     limit: '10mb' 
 }));
+
+app.use((req, res, next) => {
+    const suspiciousPattern = findSuspiciousPattern(req);
+    if (suspiciousPattern) {
+        logSecurityEvent('suspicious_payload_pattern', req, {
+            pattern: suspiciousPattern,
+            path: req.originalUrl
+        });
+    }
+    next();
+});
+
 app.use(mongoSanitize({ replaceWith: '_' }));
 app.use('/api', apiLimiter);
 app.use('/api/auth', authLimiter);
@@ -144,14 +325,6 @@ app.use(express.static(publicPath, {
         }
     }
 }));
-
-// Request logging middleware (development only)
-if (process.env.NODE_ENV === 'development') {
-    app.use((req, res, next) => {
-        console.log(`[Request] ${new Date().toISOString()} - ${req.method} ${req.path}`);
-        next();
-    });
-}
 
 // ============================================
 // 5. IMPORT ROUTES

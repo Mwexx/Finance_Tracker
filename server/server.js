@@ -307,8 +307,8 @@ app.use(mongoSanitize({ replaceWith: '_' }));
 app.use('/api', apiLimiter);
 app.use('/api/auth', authLimiter);
 
-// Serve static files from 'public' directory
-const publicPath = path.join(__dirname, 'public');
+// Serve static files from the root-level public directory.
+const publicPath = path.resolve(__dirname, '..', 'public');
 console.log(`Serving static files from: ${publicPath}`);
 
 // Verify public folder exists
@@ -373,7 +373,7 @@ app.get('/api/health', (req, res) => {
 
 // Home page - Login/Register
 app.get('/', (req, res) => {
-    const indexPath = path.join(__dirname, 'public', 'index.html');
+    const indexPath = path.join(publicPath, 'index.html');
     
     if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
@@ -387,7 +387,7 @@ app.get('/', (req, res) => {
 
 // Dashboard page - Main application
 app.get('/dashboard', (req, res) => {
-    const dashboardPath = path.join(__dirname, 'public', 'dashboard.html');
+    const dashboardPath = path.join(publicPath, 'dashboard.html');
     
     if (fs.existsSync(dashboardPath)) {
         res.sendFile(dashboardPath);
@@ -401,7 +401,7 @@ app.get('/dashboard', (req, res) => {
 
 // Catch-all for undefined routes (return frontend for SPA behavior)
 app.get('*', (req, res) => {
-    const indexPath = path.join(__dirname, 'public', 'index.html');
+    const indexPath = path.join(publicPath, 'index.html');
     if (fs.existsSync(indexPath) && !req.path.startsWith('/api')) {
         res.sendFile(indexPath);
     } else {

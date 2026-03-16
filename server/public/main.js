@@ -1,22 +1,43 @@
-// ============================================================
-// Personal Finance Tracker - Frontend JavaScript
-// ============================================================
+// Personal Finance Tracker - Frontend JavaScrip
 
 const API_URL = '/api';
+const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
+const TEXT_LIMITS = {
+    name: 80,
+    email: 254,
+    category: 60,
+    description: 240,
+    password: 128
+};
 
-// ── Utility Helpers ──────────────────────────────────────────
+// Utility Helpers 
 
 function getToken() {
-    return localStorage.getItem('token');
-}
-
-function getUser() {
-    try { return JSON.parse(localStorage.getItem('user')); }
+    try { return localStorage.getItem('token'); }
     catch { return null; }
 }
 
+function getUser() {
+    try {
+        var rawUser = localStorage.getItem('user');
+        return rawUser ? JSON.parse(rawUser) : null;
+    }
+    catch { return null; }
+}
+
+function clearSession() {
+    try {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+    } catch {
+        // Ignore storage failures and continue with logout flow.
+    }
+}
+
 function formatKsh(amount) {
-    return 'Ksh ' + parseFloat(amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    var numericAmount = Number(amount);
+    if (!Number.isFinite(numericAmount)) numericAmount = 0;
+    return 'Ksh ' + numericAmount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
 function formatDate(dateStr) {
@@ -25,7 +46,16 @@ function formatDate(dateStr) {
 }
 
 function toInputDate(dateStr) {
-    return new Date(dateStr).toISOString().split('T')[0];
+    if (!dateStr) return '';
+    var datePart = String(dateStr).match(/^\d{4}-\d{2}-\d{2}/);
+    if (datePart) return datePart[0];
+
+    var date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return '';
+
+    var month = String(date.getMonth() + 1).padStart(2, '0');
+    var day = String(date.getDate()).padStart(2, '0');
+    return date.getFullYear() + '-' + month + '-' + day;
 }
 
 function escapeHtml(str) {
@@ -38,23 +68,77 @@ function escapeHtml(str) {
         .replace(/'/g, '&#039;');
 }
 
-async function apiRequest(endpoint, method, body) {
+function normalizeText(value, maxLength) {
+    if (value === undefined || value === null) return '';
+    return String(value)
+        .replace(/[\u0000-\u001F\u007F]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, maxLength);
+}
+
+function isValidObjectId(value) {
+    return OBJECT_ID_PATTERN.test(String(value || ''));
+}
+
+function setButtonState(button, busy, idleText, busyText) {
+    if (!button) return;
+    button.disabled = busy;
+    button.textContent = busy ? busyText : idleText;
+}
+
+async function parseResponseData(res) {
+    var rawText = await res.text();
+    if (!rawText) return {};
+
+    try {
+        return JSON.parse(rawText);
+    } catch {
+        return { msg: rawText };
+    }
+}
+
+async function apiRequest(endpoint, method, body, config) {
     method = method || 'GET';
+    config = config || {};
     const options = {
         method: method,
         headers: {
-            'Content-Type': 'application/json',
-            'x-auth-token': getToken()
+            'Accept': 'application/json'
         }
     };
-    if (body) options.body = JSON.stringify(body);
-    const res = await fetch(API_URL + endpoint, options);
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.msg || 'Request failed');
-    return data;
+
+    if (body) {
+        options.headers['Content-Type'] = 'application/json';
+        options.body = JSON.stringify(body);
+    }
+
+    var token = getToken();
+    if (!config.skipAuth && token) {
+        options.headers['x-auth-token'] = token;
+    }
+
+    try {
+        const res = await fetch(API_URL + endpoint, options);
+        const data = await parseResponseData(res);
+
+        if (!res.ok) {
+            if (res.status === 401 && !config.skipAuth) {
+                clearSession();
+            }
+            throw new Error(data.msg || data.message || ('Request failed (' + res.status + ')'));
+        }
+
+        return data;
+    } catch (err) {
+        if (err instanceof TypeError) {
+            throw new Error('Unable to reach the server. Please try again.');
+        }
+        throw err;
+    }
 }
 
-// ── Auth Page ─────────────────────────────────────────────────
+// Auth Page 
 
 const authForm = document.getElementById('auth-form');
 if (authForm) {
@@ -70,6 +154,12 @@ if (authForm) {
     const nameInput     = document.getElementById('name');
     const submitBtn     = document.getElementById('auth-submit-btn');
     const errorEl       = document.getElementById('auth-error');
+    const emailInput    = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+
+    nameInput.maxLength = TEXT_LIMITS.name;
+    emailInput.maxLength = TEXT_LIMITS.email;
+    passwordInput.maxLength = TEXT_LIMITS.password;
 
     toggleLink.addEventListener('click', function(e) {
         e.preventDefault();
@@ -88,12 +178,16 @@ if (authForm) {
         e.preventDefault();
         errorEl.textContent = '';
 
-        const email    = document.getElementById('email').value.trim();
-        const password = document.getElementById('password').value;
-        const name     = nameInput.value.trim();
+        const email    = normalizeText(emailInput.value, TEXT_LIMITS.email).toLowerCase();
+        const password = passwordInput.value;
+        const name     = normalizeText(nameInput.value, TEXT_LIMITS.name);
 
         if (!email || !password) {
             errorEl.textContent = 'Email and password are required.';
+            return;
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            errorEl.textContent = 'Please enter a valid email address.';
             return;
         }
         if (!isLogin && !name) {
@@ -104,38 +198,30 @@ if (authForm) {
             errorEl.textContent = 'Password must be at least 6 characters.';
             return;
         }
+        if (password.length > TEXT_LIMITS.password) {
+            errorEl.textContent = 'Password is too long.';
+            return;
+        }
 
-        submitBtn.disabled     = true;
-        submitBtn.textContent  = isLogin ? 'Signing in...' : 'Creating account...';
+        setButtonState(submitBtn, true, isLogin ? 'Sign In' : 'Create Account', isLogin ? 'Signing in...' : 'Creating account...');
 
         try {
             const endpoint = isLogin ? '/auth/login' : '/auth/register';
             const body     = isLogin ? { email, password } : { name, email, password };
 
-            const res = await fetch(API_URL + endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-            const result = await res.json();
-
-            if (res.ok) {
-                localStorage.setItem('token', result.token);
-                localStorage.setItem('user', JSON.stringify(result.user));
-                window.location.href = '/dashboard';
-            } else {
-                errorEl.textContent = result.msg || 'Authentication failed. Please try again.';
-            }
+            const result = await apiRequest(endpoint, 'POST', body, { skipAuth: true });
+            localStorage.setItem('token', result.token);
+            localStorage.setItem('user', JSON.stringify(result.user));
+            window.location.href = '/dashboard';
         } catch (err) {
-            errorEl.textContent = 'Server error. Is the server running?';
+            errorEl.textContent = err.message || 'Authentication failed. Please try again.';
         } finally {
-            submitBtn.disabled    = false;
-            submitBtn.textContent = isLogin ? 'Sign In' : 'Create Account';
+            setButtonState(submitBtn, false, isLogin ? 'Sign In' : 'Create Account', isLogin ? 'Signing in...' : 'Creating account...');
         }
     });
 }
 
-// ── Dashboard Page ───────────────────────────────────────────
+// Dashboard Page 
 
 const dashboardContainer = document.getElementById('dashboard-container');
 if (dashboardContainer) {
@@ -152,7 +238,7 @@ if (dashboardContainer) {
     // Greet user
     const user = getUser();
     if (user) {
-        document.getElementById('user-greeting').textContent = 'Hello, ' + user.name;
+        document.getElementById('user-greeting').textContent = 'Hello, ' + (normalizeText(user.name, TEXT_LIMITS.name) || 'there');
     }
 
     // Default date for new transaction = today
@@ -160,12 +246,11 @@ if (dashboardContainer) {
 
     // Logout
     document.getElementById('logout-btn').addEventListener('click', function() {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        clearSession();
         window.location.href = '/';
     });
 
-    // ── Load Everything ──────────────────────────────────────
+    // Load Everything
 
     async function loadDashboard() {
         try {
@@ -183,8 +268,8 @@ if (dashboardContainer) {
             renderBudgetList(allBudgets, allTransactions);
         } catch (err) {
             console.error('Failed to load dashboard:', err.message);
-            if (err.message.includes('not valid') || err.message.includes('No token')) {
-                localStorage.removeItem('token');
+            if (/token|authoriz/i.test(err.message)) {
+                clearSession();
                 window.location.href = '/';
             }
         }
@@ -192,7 +277,7 @@ if (dashboardContainer) {
 
     loadDashboard();
 
-    // ── Summary Cards ────────────────────────────────────────
+    // Summary Cards 
 
     function updateSummaryCards(transactions) {
         var income = 0, expense = 0;
@@ -208,7 +293,7 @@ if (dashboardContainer) {
         balanceEl.style.color  = balance >= 0 ? '#10b981' : '#ef4444';
     }
 
-    // ── Transaction Table ────────────────────────────────────
+    // Transaction Table 
 
     function updateTransactionTable(transactions) {
         var tbody = document.getElementById('transaction-tbody');
@@ -218,21 +303,23 @@ if (dashboardContainer) {
         }
         tbody.innerHTML = transactions.map(function(t) {
             var sign = t.type === 'income' ? '+' : '-';
+            var transactionId = isValidObjectId(t._id) ? t._id : '';
             return '<tr class="transaction-row ' + t.type + '">' +
                 '<td>' + formatDate(t.date) + '</td>' +
                 '<td><span class="category-badge">' + escapeHtml(t.category) + '</span></td>' +
                 '<td><span class="type-badge ' + t.type + '">' + (t.type === 'income' ? 'Income' : 'Expense') + '</span></td>' +
                 '<td class="desc-cell">' + escapeHtml(t.description || '\u2014') + '</td>' +
                 '<td class="amount-cell ' + t.type + '">' + sign + formatKsh(t.amount) + '</td>' +
-                '<td class="action-cell">' +
-                    '<button class="btn-edit-sm" onclick="openEditModal(\'' + t._id + '\')">Edit</button>' +
-                    '<button class="btn-delete-sm" onclick="deleteTransaction(\'' + t._id + '\')">Delete</button>' +
+                '<td class="action-cell"><div class="action-buttons">' +
+                    '<button type="button" class="btn-edit-sm" data-action="edit-transaction" data-id="' + escapeHtml(transactionId) + '"' + (transactionId ? '' : ' disabled') + '>Edit</button>' +
+                    '<button type="button" class="btn-delete-sm" data-action="delete-transaction" data-id="' + escapeHtml(transactionId) + '"' + (transactionId ? '' : ' disabled') + '>Delete</button>' +
+                '</div>' +
                 '</td>' +
             '</tr>';
         }).join('');
     }
 
-    // ── Pie Chart (Expense by Category) ─────────────────────
+    // Pie Chart (Expense by Category) 
 
     function renderPieChart(transactions) {
         var expenses = transactions.filter(function(t) { return t.type === 'expense'; });
@@ -280,7 +367,7 @@ if (dashboardContainer) {
         });
     }
 
-    // ── Bar Chart (Budget vs Actual) ─────────────────────────
+    // Bar Chart (Budget vs Actual)
 
     function currentMonthExpenses(transactions) {
         var now = new Date();
@@ -370,7 +457,7 @@ if (dashboardContainer) {
         });
     }
 
-    // ── Budget List with Progress Bars ───────────────────────
+    // Budget List with Progress Bars 
 
     function renderBudgetList(budgets, transactions) {
         var container = document.getElementById('budget-list');
@@ -385,13 +472,14 @@ if (dashboardContainer) {
                 .reduce(function(sum, t) { return sum + t.amount; }, 0);
             var pct         = Math.min((spent / b.limit) * 100, 100);
             var statusClass = pct >= 100 ? 'danger' : pct >= 80 ? 'warning' : 'safe';
+            var budgetId = isValidObjectId(b._id) ? b._id : '';
             return '<div class="budget-item">' +
                 '<div class="budget-item-header">' +
                     '<span class="budget-category">' + escapeHtml(b.category) + '</span>' +
                     '<div class="budget-amounts">' +
                         '<span class="budget-spent ' + statusClass + '">Ksh ' + spent.toFixed(2) + '</span>' +
                         '<span class="budget-limit"> / Ksh ' + b.limit.toFixed(2) + '</span>' +
-                        '<button class="btn-delete-sm" onclick="deleteBudget(\'' + b._id + '\')">&times;</button>' +
+                        '<button type="button" class="btn-delete-sm" data-action="delete-budget" data-id="' + escapeHtml(budgetId) + '" aria-label="Delete budget"' + (budgetId ? '' : ' disabled') + '>&times;</button>' +
                     '</div>' +
                 '</div>' +
                 '<div class="progress-bar"><div class="progress-fill ' + statusClass + '" style="width:' + pct + '%"></div></div>' +
@@ -400,22 +488,47 @@ if (dashboardContainer) {
         }).join('');
     }
 
-    // ── Add Transaction ──────────────────────────────────────
+    //Add Transaction 
+
+    document.getElementById('transaction-tbody').addEventListener('click', function(e) {
+        var button = e.target.closest('button[data-action]');
+        if (!button) return;
+
+        var action = button.getAttribute('data-action');
+        var id = button.getAttribute('data-id');
+
+        if (action === 'edit-transaction') {
+            openEditModal(id);
+        }
+        if (action === 'delete-transaction') {
+            deleteTransaction(id);
+        }
+    });
+
+    document.getElementById('budget-list').addEventListener('click', function(e) {
+        var button = e.target.closest('button[data-action="delete-budget"]');
+        if (!button) return;
+        deleteBudget(button.getAttribute('data-id'));
+    });
 
     document.getElementById('transaction-form').addEventListener('submit', async function(e) {
         e.preventDefault();
         var btn = e.target.querySelector('button[type="submit"]');
-        btn.disabled = true;
-        btn.textContent = 'Adding...';
+        setButtonState(btn, true, 'Add Transaction', 'Adding...');
 
         var type        = document.getElementById('t-type').value;
-        var category    = document.getElementById('t-category').value.trim();
+        var category    = normalizeText(document.getElementById('t-category').value, TEXT_LIMITS.category);
         var amount      = parseFloat(document.getElementById('t-amount').value);
         var date        = document.getElementById('t-date').value;
-        var description = document.getElementById('t-description').value.trim();
+        var description = normalizeText(document.getElementById('t-description').value, TEXT_LIMITS.description);
 
-        if (!category) { alert('Please enter a category.'); btn.disabled = false; btn.textContent = 'Add Transaction'; return; }
-        if (!date)     { alert('Please select a date.');    btn.disabled = false; btn.textContent = 'Add Transaction'; return; }
+        if (!category) { alert('Please enter a category.'); setButtonState(btn, false, 'Add Transaction', 'Adding...'); return; }
+        if (!date)     { alert('Please select a date.');    setButtonState(btn, false, 'Add Transaction', 'Adding...'); return; }
+        if (!Number.isFinite(amount) || amount <= 0) {
+            alert('Please enter a valid amount greater than zero.');
+            setButtonState(btn, false, 'Add Transaction', 'Adding...');
+            return;
+        }
 
         try {
             await apiRequest('/transactions', 'POST', { type, category, amount, date, description });
@@ -425,23 +538,26 @@ if (dashboardContainer) {
         } catch (err) {
             alert('Failed to add transaction: ' + err.message);
         } finally {
-            btn.disabled    = false;
-            btn.textContent = 'Add Transaction';
+            setButtonState(btn, false, 'Add Transaction', 'Adding...');
         }
     });
 
-    // ── Set Budget ───────────────────────────────────────────
+    // Set Budget 
 
     document.getElementById('budget-form').addEventListener('submit', async function(e) {
         e.preventDefault();
         var btn = e.target.querySelector('button[type="submit"]');
-        btn.disabled = true;
-        btn.textContent = 'Saving...';
+        setButtonState(btn, true, 'Set Budget', 'Saving...');
 
-        var category = document.getElementById('b-category').value.trim();
+        var category = normalizeText(document.getElementById('b-category').value, TEXT_LIMITS.category);
         var limit    = parseFloat(document.getElementById('b-limit').value);
 
-        if (!category) { alert('Please enter a category.'); btn.disabled = false; btn.textContent = 'Set Budget'; return; }
+        if (!category) { alert('Please enter a category.'); setButtonState(btn, false, 'Set Budget', 'Saving...'); return; }
+        if (!Number.isFinite(limit) || limit <= 0) {
+            alert('Please enter a valid monthly limit greater than zero.');
+            setButtonState(btn, false, 'Set Budget', 'Saving...');
+            return;
+        }
 
         try {
             await apiRequest('/budgets', 'POST', { category, limit });
@@ -450,14 +566,17 @@ if (dashboardContainer) {
         } catch (err) {
             alert('Failed to set budget: ' + err.message);
         } finally {
-            btn.disabled    = false;
-            btn.textContent = 'Set Budget';
+            setButtonState(btn, false, 'Set Budget', 'Saving...');
         }
     });
 
-    // ── Delete Transaction ───────────────────────────────────
+    // Delete Transaction
 
-    window.deleteTransaction = async function(id) {
+    async function deleteTransaction(id) {
+        if (!isValidObjectId(id)) {
+            alert('The selected transaction is invalid.');
+            return;
+        }
         if (!confirm('Delete this transaction? This cannot be undone.')) return;
         try {
             await apiRequest('/transactions/' + id, 'DELETE');
@@ -465,11 +584,15 @@ if (dashboardContainer) {
         } catch (err) {
             alert('Failed to delete: ' + err.message);
         }
-    };
+    }
 
-    // ── Delete Budget ────────────────────────────────────────
+    // Delete Budget 
 
-    window.deleteBudget = async function(id) {
+    async function deleteBudget(id) {
+        if (!isValidObjectId(id)) {
+            alert('The selected budget is invalid.');
+            return;
+        }
         if (!confirm('Remove this budget limit?')) return;
         try {
             await apiRequest('/budgets/' + id, 'DELETE');
@@ -477,11 +600,12 @@ if (dashboardContainer) {
         } catch (err) {
             alert('Failed to remove budget: ' + err.message);
         }
-    };
+    }
 
-    // ── Edit Modal ───────────────────────────────────────────
+    // Edit Modal 
 
-    window.openEditModal = function(id) {
+    function openEditModal(id) {
+        if (!isValidObjectId(id)) return;
         var t = allTransactions.find(function(tx) { return tx._id === id; });
         if (!t) return;
         document.getElementById('edit-id').value          = t._id;
@@ -491,7 +615,7 @@ if (dashboardContainer) {
         document.getElementById('edit-date').value        = toInputDate(t.date);
         document.getElementById('edit-description').value = t.description || '';
         document.getElementById('edit-modal').style.display = 'flex';
-    };
+    }
 
     function closeModal() {
         document.getElementById('edit-modal').style.display = 'none';
@@ -506,15 +630,35 @@ if (dashboardContainer) {
     document.getElementById('edit-form').addEventListener('submit', async function(e) {
         e.preventDefault();
         var btn = e.target.querySelector('button[type="submit"]');
-        btn.disabled = true;
-        btn.textContent = 'Saving...';
+        setButtonState(btn, true, 'Save Changes', 'Saving...');
 
         var id          = document.getElementById('edit-id').value;
         var type        = document.getElementById('edit-type').value;
-        var category    = document.getElementById('edit-category').value.trim();
+        var category    = normalizeText(document.getElementById('edit-category').value, TEXT_LIMITS.category);
         var amount      = parseFloat(document.getElementById('edit-amount').value);
         var date        = document.getElementById('edit-date').value;
-        var description = document.getElementById('edit-description').value.trim();
+        var description = normalizeText(document.getElementById('edit-description').value, TEXT_LIMITS.description);
+
+        if (!isValidObjectId(id)) {
+            alert('The selected transaction is invalid.');
+            setButtonState(btn, false, 'Save Changes', 'Saving...');
+            return;
+        }
+        if (!category) {
+            alert('Please enter a category.');
+            setButtonState(btn, false, 'Save Changes', 'Saving...');
+            return;
+        }
+        if (!Number.isFinite(amount) || amount <= 0) {
+            alert('Please enter a valid amount greater than zero.');
+            setButtonState(btn, false, 'Save Changes', 'Saving...');
+            return;
+        }
+        if (!date) {
+            alert('Please select a date.');
+            setButtonState(btn, false, 'Save Changes', 'Saving...');
+            return;
+        }
 
         try {
             await apiRequest('/transactions/' + id, 'PUT', { type, category, amount, date, description });
@@ -523,15 +667,14 @@ if (dashboardContainer) {
         } catch (err) {
             alert('Failed to update: ' + err.message);
         } finally {
-            btn.disabled    = false;
-            btn.textContent = 'Save Changes';
+            setButtonState(btn, false, 'Save Changes', 'Saving...');
         }
     });
 
-    // ── Transaction Filters ──────────────────────────────────
+    //  Transaction Filter
 
     document.getElementById('filter-apply-btn').addEventListener('click', async function() {
-        var category  = document.getElementById('filter-category').value.trim();
+        var category  = normalizeText(document.getElementById('filter-category').value, TEXT_LIMITS.category);
         var type      = document.getElementById('filter-type').value;
         var startDate = document.getElementById('filter-start').value;
         var endDate   = document.getElementById('filter-end').value;

@@ -12,6 +12,10 @@ const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const hpp = require('hpp');
+const mongoSanitize = require('express-mongo-sanitize');
 const path = require('path');
 const fs = require('fs');
 
@@ -42,23 +46,72 @@ if (!process.env.JWT_SECRET) {
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+app.disable('x-powered-by');
+app.set('trust proxy', 1);
+mongoose.set('sanitizeFilter', true);
+
 // ============================================
 // 4. CONFIGURE MIDDLEWARE
 // ============================================
 
+const allowedOrigins = new Set([
+    'http://localhost:5000',
+    'http://127.0.0.1:5000',
+    'http://localhost:5500',
+    'http://127.0.0.1:5500'
+]);
+
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 300,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { msg: 'Too many requests. Please try again in a few minutes.' }
+});
+
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { msg: 'Too many authentication attempts. Please try again later.' }
+});
+
+app.use(helmet({
+    crossOriginEmbedderPolicy: false,
+    contentSecurityPolicy: {
+        useDefaults: true,
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", 'https://cdn.jsdelivr.net'],
+            scriptSrcAttr: ["'none'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", 'data:'],
+            connectSrc: ["'self'"],
+            objectSrc: ["'none'"],
+            frameAncestors: ["'none'"],
+            baseUri: ["'self'"],
+            formAction: ["'self'"]
+        }
+    },
+    referrerPolicy: { policy: 'no-referrer' }
+}));
+
 // CORS - Allow frontend to communicate with backend
 app.use(cors({
-    origin: [
-        'http://localhost:5000',
-        'http://127.0.0.1:5000',
-        'http://localhost:5500',
-        'http://127.0.0.1:5500',
-        /\.vercel\.app$/
-    ],
+    origin: function(origin, callback) {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.has(origin) || /\.vercel\.app$/i.test(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token']
 }));
+
+app.use(hpp());
 
 // Body parsing middleware
 app.use(express.json({ 
@@ -69,6 +122,9 @@ app.use(express.urlencoded({
     extended: true,
     limit: '10mb' 
 }));
+app.use(mongoSanitize({ replaceWith: '_' }));
+app.use('/api', apiLimiter);
+app.use('/api/auth', authLimiter);
 
 // Serve static files from 'public' directory
 const publicPath = path.join(__dirname, 'public');
@@ -80,7 +136,14 @@ if (!fs.existsSync(publicPath)) {
     try { fs.mkdirSync(publicPath, { recursive: true }); } catch (e) { /* read-only fs in serverless */ }
 }
 
-app.use(express.static(publicPath));
+app.use(express.static(publicPath, {
+    index: false,
+    setHeaders: function(res, filePath) {
+        if (filePath.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-store');
+        }
+    }
+}));
 
 // Request logging middleware (development only)
 if (process.env.NODE_ENV === 'development') {

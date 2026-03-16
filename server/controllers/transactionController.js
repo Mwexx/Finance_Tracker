@@ -2,10 +2,24 @@ const Transaction = require('../models/Transaction');
 const Budget = require('../models/Budget');
 const User = require('../models/User');
 const sendEmail = require('../utils/sendEmail');
+const mongoose = require('mongoose');
+
+function normalizeText(value, maxLength) {
+    if (value === undefined || value === null) return '';
+    return String(value)
+        .replace(/[\u0000-\u001F\u007F]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, maxLength);
+}
 
 // Add Transaction
 exports.addTransaction = async (req, res) => {
-    const { type, category, amount, date, description } = req.body;
+    const type = normalizeText(req.body.type, 10);
+    const category = normalizeText(req.body.category, 60);
+    const amount = Number(req.body.amount);
+    const description = normalizeText(req.body.description, 240);
+    const date = req.body.date;
 
     if (!type || !category || !amount) {
         return res.status(400).json({ msg: 'Type, category, and amount are required' });
@@ -16,19 +30,27 @@ exports.addTransaction = async (req, res) => {
     if (isNaN(amount) || Number(amount) <= 0) {
         return res.status(400).json({ msg: 'Amount must be a positive number' });
     }
+    if (amount > 1_000_000_000) {
+        return res.status(400).json({ msg: 'Amount is too large' });
+    }
+
+    const normalizedDate = date ? new Date(date) : new Date();
+    if (Number.isNaN(normalizedDate.getTime())) {
+        return res.status(400).json({ msg: 'Invalid date value' });
+    }
 
     try {
         const transaction = await new Transaction({
             userId: req.user.id,
             type,
-            category: category.trim(),
-            amount: Number(amount),
-            description: description ? description.trim() : '',
-            date: date ? new Date(date) : Date.now()
+            category,
+            amount,
+            description,
+            date: normalizedDate
         }).save();
 
         if (type === 'expense') {
-            checkBudgetAlert(req.user.id, category.trim()).catch(e => console.error('Budget alert error:', e.message));
+            checkBudgetAlert(req.user.id, category).catch(e => console.error('Budget alert error:', e.message));
         }
 
         res.json(transaction);
@@ -46,13 +68,23 @@ exports.getTransactions = async (req, res) => {
             filter.type = req.query.type;
         }
         if (req.query.category) {
-            filter.category = new RegExp(req.query.category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+            const queryCategory = normalizeText(req.query.category, 60);
+            filter.category = new RegExp(queryCategory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
         }
         if (req.query.startDate || req.query.endDate) {
             filter.date = {};
-            if (req.query.startDate) filter.date.$gte = new Date(req.query.startDate);
+            if (req.query.startDate) {
+                const start = new Date(req.query.startDate);
+                if (Number.isNaN(start.getTime())) {
+                    return res.status(400).json({ msg: 'Invalid start date' });
+                }
+                filter.date.$gte = start;
+            }
             if (req.query.endDate) {
                 const end = new Date(req.query.endDate);
+                if (Number.isNaN(end.getTime())) {
+                    return res.status(400).json({ msg: 'Invalid end date' });
+                }
                 end.setHours(23, 59, 59, 999);
                 filter.date.$lte = end;
             }
@@ -68,6 +100,10 @@ exports.getTransactions = async (req, res) => {
 // Update Transaction
 exports.updateTransaction = async (req, res) => {
     try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ msg: 'Invalid transaction id' });
+        }
+
         const transaction = await Transaction.findById(req.params.id);
         if (!transaction) return res.status(404).json({ msg: 'Transaction not found' });
         if (transaction.userId.toString() !== req.user.id) {
@@ -76,10 +112,22 @@ exports.updateTransaction = async (req, res) => {
 
         const { type, category, amount, date, description } = req.body;
         if (type && ['income', 'expense'].includes(type)) transaction.type = type;
-        if (category) transaction.category = category.trim();
-        if (amount && !isNaN(amount) && Number(amount) > 0) transaction.amount = Number(amount);
-        if (date) transaction.date = new Date(date);
-        if (description !== undefined) transaction.description = description.trim();
+        if (category) transaction.category = normalizeText(category, 60);
+        if (amount !== undefined) {
+            const normalizedAmount = Number(amount);
+            if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0 || normalizedAmount > 1_000_000_000) {
+                return res.status(400).json({ msg: 'Amount must be a positive number within range' });
+            }
+            transaction.amount = normalizedAmount;
+        }
+        if (date) {
+            const normalizedDate = new Date(date);
+            if (Number.isNaN(normalizedDate.getTime())) {
+                return res.status(400).json({ msg: 'Invalid date value' });
+            }
+            transaction.date = normalizedDate;
+        }
+        if (description !== undefined) transaction.description = normalizeText(description, 240);
 
         await transaction.save();
 
@@ -96,6 +144,9 @@ exports.updateTransaction = async (req, res) => {
 // Delete Transaction (with ownership check)
 exports.deleteTransaction = async (req, res) => {
     try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ msg: 'Invalid transaction id' });
+        }
         const transaction = await Transaction.findById(req.params.id);
         if (!transaction) return res.status(404).json({ msg: 'Transaction not found' });
         if (transaction.userId.toString() !== req.user.id) {
@@ -111,7 +162,8 @@ exports.deleteTransaction = async (req, res) => {
 // Budget Alert Algorithm (80% threshold, one alert per calendar month per category)
 async function checkBudgetAlert(userId, category) {
     try {
-        const budget = await Budget.findOne({ userId, category });
+        const safeCategory = normalizeText(category, 60);
+        const budget = await Budget.findOne({ userId, category: safeCategory });
         if (!budget) return;
 
         const now = new Date();
@@ -119,7 +171,7 @@ async function checkBudgetAlert(userId, category) {
         const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
         const transactions = await Transaction.find({
-            userId, type: 'expense', category,
+            userId, type: 'expense', category: safeCategory,
             date: { $gte: monthStart, $lte: monthEnd }
         });
         const totalSpent = transactions.reduce((sum, t) => sum + t.amount, 0);
@@ -136,17 +188,18 @@ async function checkBudgetAlert(userId, category) {
             }
 
             const user = await User.findById(userId);
+            if (!user || !user.email) return;
             const remaining = budget.limit - totalSpent;
-            const subject = `Budget Alert: 80% Threshold Reached - ${category}`;
+            const subject = `Budget Alert: 80% Threshold Reached - ${safeCategory}`;
             const message = `
                 <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;border:1px solid #e2e8f0;border-radius:10px;">
                     <h2 style="color:#dc2626;margin-bottom:8px;">&#9888;&#65039; Budget Alert: 80% Threshold Reached</h2>
                     <p style="color:#475569;margin-bottom:20px;">Dear <strong>${user.name}</strong>,</p>
-                    <p style="color:#1e293b;">You have used <strong style="color:#dc2626;">${percentage.toFixed(1)}%</strong> of your budget for the <strong>${category}</strong> category.</p>
+                    <p style="color:#1e293b;">You have used <strong style="color:#dc2626;">${percentage.toFixed(1)}%</strong> of your budget for the <strong>${safeCategory}</strong> category.</p>
                     <table style="width:100%;border-collapse:collapse;margin:20px 0;">
                         <tr style="background:#f8fafc;">
                             <td style="padding:10px 14px;border:1px solid #e2e8f0;font-weight:600;">Category</td>
-                            <td style="padding:10px 14px;border:1px solid #e2e8f0;">${category}</td>
+                            <td style="padding:10px 14px;border:1px solid #e2e8f0;">${safeCategory}</td>
                         </tr>
                         <tr>
                             <td style="padding:10px 14px;border:1px solid #e2e8f0;font-weight:600;">Budget Limit</td>
@@ -171,7 +224,7 @@ async function checkBudgetAlert(userId, category) {
 
             budget.alertSentAt = now;
             await budget.save();
-            console.log(`Budget alert sent to ${user.email} for category: ${category}`);
+            console.log(`Budget alert sent to ${user.email} for category: ${safeCategory}`);
         }
     } catch (error) {
         console.error('Budget alert check failed:', error.message);

@@ -1,4 +1,4 @@
-/* ─── Reset & CSS Variables ───────────────────────────────── */
+/* Reset & CSS Variables */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
@@ -26,7 +26,21 @@ body {
     min-height: 100vh;
 }
 
-/* ─── Auth Page ────────────────────────────────────────────── */
+button,
+input,
+select {
+    font: inherit;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+    outline: 3px solid rgba(37, 99, 235, 0.28);
+    outline-offset: 2px;
+}
+
+/* Auth Page  */
 .auth-page {
     display: flex;
     align-items: center;
@@ -57,7 +71,7 @@ body {
 .auth-switch a { color: var(--primary); text-decoration: none; font-weight: 500; cursor: pointer; }
 .auth-switch a:hover { text-decoration: underline; }
 
-/* ─── Form Fields ──────────────────────────────────────────── */
+/* Form Fields */
 .field-group { margin-bottom: 1rem; }
 .field-group label {
     display: block;
@@ -87,7 +101,7 @@ body {
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 .error-text { color: var(--danger); font-size: 0.875rem; margin: 0.4rem 0; min-height: 1.2rem; }
 
-/* ─── Buttons ──────────────────────────────────────────────── */
+/* Buttons */
 .btn-primary {
     display: block;
     width: 100%;
@@ -174,7 +188,7 @@ body {
 }
 .btn-ghost-icon:hover { background: var(--bg); }
 
-/* ─── Navbar ───────────────────────────────────────────────── */
+/* Navbar */
 .navbar {
     background: #1e293b;
     color: #fff;
@@ -189,9 +203,9 @@ body {
 }
 .nav-brand { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.3px; }
 .nav-user  { display: flex; align-items: center; gap: 1rem; }
-.nav-user span { font-size: 0.9rem; color: #cbd5e1; }
+.nav-user span { font-size: 0.9rem; color: #cbd5e1; max-width: 18rem; overflow-wrap: anywhere; }
 
-/* ─── Dashboard Layout ────────────────────────────────────── */
+/* Dashboard Layout */
 .main-container {
     max-width: 1200px;
     margin: 0 auto;
@@ -201,7 +215,7 @@ body {
     gap: 1.5rem;
 }
 
-/* ─── Card Base ────────────────────────────────────────────── */
+/* Card Base */
 .card {
     background: var(--card-bg);
     border-radius: var(--radius);
@@ -216,7 +230,7 @@ body {
     border-bottom: 1px solid var(--border);
 }
 
-/* ─── Summary Cards ───────────────────────────────────────── */
+/* Summary Cards */
 .summary-cards {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -241,7 +255,7 @@ body {
 .expense-card .card-info h2 { color: var(--danger); }
 .balance-card .card-info h2 { color: var(--primary); }
 
-/* ─── Charts Row ──────────────────────────────────────────── */
+/* Charts Row */
 .charts-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -255,12 +269,13 @@ body {
     align-items: center;
     justify-content: center;
 }
+.chart-wrapper canvas { max-width: 100%; }
 
-/* ─── Forms Row ───────────────────────────────────────────── */
+/* Forms Row */
 .forms-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
 .form-card  { padding: 1.5rem; }
 
-/* ─── Budget List ─────────────────────────────────────────── */
+/* Budget List */
 .budget-list-section  { margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1rem; }
 .section-subtitle     { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.07em; }
 .budget-item          { margin-bottom: 1rem; }
@@ -284,7 +299,7 @@ body {
 .budget-pct.warning { color: var(--warning); }
 .budget-pct.danger  { color: var(--danger); }
 
-/* ─── History / Filter ────────────────────────────────────── */
+/* History / Filter */
 .history-section  { padding: 1.5rem; }
 .history-header   { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem; }
 .history-header .card-title { margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
@@ -305,7 +320,7 @@ body {
 .filter-bar select:focus { border-color: var(--primary); }
 .filter-sep { color: var(--text-muted); font-size: 0.85rem; }
 
-/* ─── Transaction Table ───────────────────────────────────── */
+/* Transaction Table */
 .table-wrapper { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 thead th {
@@ -333,10 +348,11 @@ tbody tr:hover { background: #f8fafc; }
 .amount-cell.income  { color: var(--success); }
 .amount-cell.expense { color: var(--danger); }
 .action-cell         { white-space: nowrap; }
-.action-cell button  { margin-right: 0.35rem; }
+.action-buttons      { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.action-cell button  { margin-right: 0; }
 .desc-cell { color: var(--text-muted); font-size: 0.85rem; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ─── Modal ───────────────────────────────────────────────── */
+/* Modal */
 .modal-overlay {
     position: fixed;
     inset: 0;
@@ -359,10 +375,10 @@ tbody tr:hover { background: #f8fafc; }
 .modal-header h3 { font-size: 1.1rem; font-weight: 700; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.25rem; }
 
-/* ─── Empty State ─────────────────────────────────────────── */
+/* Empty State */
 .empty-msg { color: var(--text-muted); font-size: 0.9rem; text-align: center; padding: 2rem 1rem; }
 
-/* ─── Responsive ──────────────────────────────────────────── */
+/* Responsive */
 @media (max-width: 900px) {
     .charts-row { grid-template-columns: 1fr; }
     .forms-row  { grid-template-columns: 1fr; }
@@ -375,5 +391,6 @@ tbody tr:hover { background: #f8fafc; }
     .filter-bar input,
     .filter-bar select { width: 100%; }
     .main-container { padding: 1rem; }
-    .navbar { padding: 0.75rem 1rem; }
+    .navbar { padding: 0.75rem 1rem; align-items: flex-start; }
+    .nav-user { width: 100%; justify-content: space-between; flex-wrap: wrap; }
 }

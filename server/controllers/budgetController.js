@@ -1,5 +1,10 @@
 const Budget = require('../models/Budget');
 const mongoose = require('mongoose');
+const { checkBudgetAlert } = require('./transactionController');
+
+function escapeRegex(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 function normalizeText(value, maxLength) {
     if (value === undefined || value === null) return '';
@@ -26,9 +31,11 @@ exports.setBudget = async (req, res) => {
     }
 
     try {
-        let budget = await Budget.findOne({ userId: req.user.id, category });
+        const categoryMatcher = new RegExp(`^${escapeRegex(category)}$`, 'i');
+        let budget = await Budget.findOne({ userId: req.user.id, category: categoryMatcher }).sort({ updatedAt: -1 });
 
         if (budget) {
+            budget.category = category;
             budget.limit = limit;
             // Reset alert when limit is changed so user gets fresh alert
             budget.alertSentAt = null;
@@ -40,6 +47,10 @@ exports.setBudget = async (req, res) => {
                 limit
             }).save();
         }
+
+        // Re-check threshold immediately in case existing spend is already at/above 80%.
+        checkBudgetAlert(req.user.id, category).catch(e => console.error('Budget alert error:', e.message));
+
         res.json(budget);
     } catch (err) {
         res.status(500).json({ msg: 'Server Error' });

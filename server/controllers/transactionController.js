@@ -4,6 +4,10 @@ const User = require('../models/User');
 const sendEmail = require('../utils/sendEmail');
 const mongoose = require('mongoose');
 
+function escapeRegex(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function normalizeText(value, maxLength) {
     if (value === undefined || value === null) return '';
     return String(value)
@@ -163,7 +167,8 @@ exports.deleteTransaction = async (req, res) => {
 async function checkBudgetAlert(userId, category) {
     try {
         const safeCategory = normalizeText(category, 60);
-        const budget = await Budget.findOne({ userId, category: safeCategory });
+        const categoryMatcher = new RegExp(`^${escapeRegex(safeCategory)}$`, 'i');
+        const budget = await Budget.findOne({ userId, category: categoryMatcher }).sort({ updatedAt: -1 });
         if (!budget) return;
 
         const now = new Date();
@@ -171,7 +176,9 @@ async function checkBudgetAlert(userId, category) {
         const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
         const transactions = await Transaction.find({
-            userId, type: 'expense', category: safeCategory,
+            userId,
+            type: 'expense',
+            category: categoryMatcher,
             date: { $gte: monthStart, $lte: monthEnd }
         });
         const totalSpent = transactions.reduce((sum, t) => sum + t.amount, 0);
@@ -190,16 +197,17 @@ async function checkBudgetAlert(userId, category) {
             const user = await User.findById(userId);
             if (!user || !user.email) return;
             const remaining = budget.limit - totalSpent;
-            const subject = `Budget Alert: 80% Threshold Reached - ${safeCategory}`;
+            const displayCategory = budget.category || safeCategory;
+            const subject = `Budget Alert: 80% Threshold Reached - ${displayCategory}`;
             const message = `
                 <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;border:1px solid #e2e8f0;border-radius:10px;">
                     <h2 style="color:#dc2626;margin-bottom:8px;">&#9888;&#65039; Budget Alert: 80% Threshold Reached</h2>
                     <p style="color:#475569;margin-bottom:20px;">Dear <strong>${user.name}</strong>,</p>
-                    <p style="color:#1e293b;">You have used <strong style="color:#dc2626;">${percentage.toFixed(1)}%</strong> of your budget for the <strong>${safeCategory}</strong> category.</p>
+                    <p style="color:#1e293b;">You have used <strong style="color:#dc2626;">${percentage.toFixed(1)}%</strong> of your budget for the <strong>${displayCategory}</strong> category.</p>
                     <table style="width:100%;border-collapse:collapse;margin:20px 0;">
                         <tr style="background:#f8fafc;">
                             <td style="padding:10px 14px;border:1px solid #e2e8f0;font-weight:600;">Category</td>
-                            <td style="padding:10px 14px;border:1px solid #e2e8f0;">${safeCategory}</td>
+                            <td style="padding:10px 14px;border:1px solid #e2e8f0;">${displayCategory}</td>
                         </tr>
                         <tr>
                             <td style="padding:10px 14px;border:1px solid #e2e8f0;font-weight:600;">Budget Limit</td>
@@ -224,9 +232,11 @@ async function checkBudgetAlert(userId, category) {
 
             budget.alertSentAt = now;
             await budget.save();
-            console.log(`Budget alert sent to ${user.email} for category: ${safeCategory}`);
+            console.log(`Budget alert sent to ${user.email} for category: ${displayCategory}`);
         }
     } catch (error) {
         console.error('Budget alert check failed:', error.message);
     }
 }
+
+exports.checkBudgetAlert = checkBudgetAlert;

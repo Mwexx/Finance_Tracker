@@ -76,13 +76,13 @@ exports.getTransactions = async (req, res) => {
             filter.category = new RegExp(queryCategory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
         }
         if (req.query.startDate || req.query.endDate) {
-            filter.date = {};
+            const dateRange = {};
             if (req.query.startDate) {
                 const start = new Date(req.query.startDate);
                 if (Number.isNaN(start.getTime())) {
                     return res.status(400).json({ msg: 'Invalid start date' });
                 }
-                filter.date.$gte = start;
+                dateRange.$gte = start;
             }
             if (req.query.endDate) {
                 const end = new Date(req.query.endDate);
@@ -90,8 +90,9 @@ exports.getTransactions = async (req, res) => {
                     return res.status(400).json({ msg: 'Invalid end date' });
                 }
                 end.setHours(23, 59, 59, 999);
-                filter.date.$lte = end;
+                dateRange.$lte = end;
             }
+            filter.date = mongoose.trusted(dateRange);
         }
 
         const transactions = await Transaction.find(filter).sort({ date: -1 });
@@ -179,7 +180,7 @@ async function checkBudgetAlert(userId, category) {
             userId,
             type: 'expense',
             category: categoryMatcher,
-            date: { $gte: monthStart, $lte: monthEnd }
+            date: mongoose.trusted({ $gte: monthStart, $lte: monthEnd })
         });
         const totalSpent = transactions.reduce((sum, t) => sum + t.amount, 0);
         const percentage = (totalSpent / budget.limit) * 100;

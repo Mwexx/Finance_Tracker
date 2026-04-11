@@ -3,6 +3,7 @@ const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const mongoose = require('mongoose');
 const sendEmail = require('../utils/sendEmail');
 
 const MAX_NAME_LENGTH = 80;
@@ -224,7 +225,7 @@ exports.resetPassword = async (req, res) => {
         const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
         const user = await User.findOne({
             passwordResetToken: tokenHash,
-            passwordResetExpires: { $gt: new Date() }
+            passwordResetExpires: mongoose.trusted({ $gt: new Date() })
         });
 
         if (!user) {

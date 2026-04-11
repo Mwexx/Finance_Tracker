@@ -29,6 +29,9 @@
                     <label for="password">Password</label>
                     <input type="password" id="password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" required autocomplete="current-password">
                 </div>
+                <div class="auth-link-row">
+                    <a id="forgot-link" href="/?mode=forgot">Forgot password?</a>
+                </div>
                 <p id="auth-error" class="error-text"></p>
                 <button type="submit" id="auth-submit-btn" class="btn-primary">Sign In</button>
             </form>
@@ -36,6 +39,38 @@
                 <span id="auth-switch-label">Don't have an account?</span>
                 <a id="toggle-form" href="#"> Register here</a>
             </p>
+
+            <section id="forgot-section" class="auth-alt-section" style="display:none;" aria-live="polite">
+                <h2>Forgot Password</h2>
+                <p class="auth-subtitle">Enter your account email and we will send a reset link.</p>
+                <form id="forgot-form" novalidate>
+                    <div class="field-group">
+                        <label for="forgot-email">Email Address</label>
+                        <input type="email" id="forgot-email" placeholder="you@example.com" required autocomplete="email">
+                    </div>
+                    <p id="forgot-message" class="info-text"></p>
+                    <button type="submit" id="forgot-submit-btn" class="btn-primary">Send Reset Link</button>
+                </form>
+                <p class="auth-switch"><a id="back-to-signin-from-forgot" href="/">Back to sign in</a></p>
+            </section>
+
+            <section id="reset-section" class="auth-alt-section" style="display:none;" aria-live="polite">
+                <h2>Reset Password</h2>
+                <p class="auth-subtitle">Create a new password for your account.</p>
+                <form id="reset-form" novalidate>
+                    <div class="field-group">
+                        <label for="reset-password">New Password</label>
+                        <input type="password" id="reset-password" placeholder="At least 8 characters" required autocomplete="new-password">
+                    </div>
+                    <div class="field-group">
+                        <label for="reset-confirm-password">Confirm New Password</label>
+                        <input type="password" id="reset-confirm-password" placeholder="Repeat your password" required autocomplete="new-password">
+                    </div>
+                    <p id="reset-message" class="info-text"></p>
+                    <button type="submit" id="reset-submit-btn" class="btn-primary">Reset Password</button>
+                </form>
+                <p class="auth-switch"><a id="back-to-signin-from-reset" href="/">Back to sign in</a></p>
+            </section>
         </div>
     </div>
     <script src="main.js"></script>

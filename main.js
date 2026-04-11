@@ -142,8 +142,12 @@ async function apiRequest(endpoint, method, body, config) {
 
 const authForm = document.getElementById('auth-form');
 if (authForm) {
-    // Already logged in → go to dashboard
-    if (getToken()) window.location.href = '/dashboard';
+    var authUrl = new URL(window.location.href);
+    var pageMode = authUrl.searchParams.get('mode');
+    var resetToken = normalizeText(authUrl.searchParams.get('token') || '', 200);
+
+    // Already logged in → go to dashboard, except when actively resetting password.
+    if (getToken() && pageMode !== 'reset' && pageMode !== 'forgot') window.location.href = '/dashboard';
 
     let isLogin = true;
     const toggleLink    = document.getElementById('toggle-form');
@@ -156,13 +160,65 @@ if (authForm) {
     const errorEl       = document.getElementById('auth-error');
     const emailInput    = document.getElementById('email');
     const passwordInput = document.getElementById('password');
+    const forgotSection = document.getElementById('forgot-section');
+    const resetSection = document.getElementById('reset-section');
+    const authSwitch = document.querySelector('.auth-switch');
+    const forgotForm = document.getElementById('forgot-form');
+    const forgotEmailInput = document.getElementById('forgot-email');
+    const forgotMessage = document.getElementById('forgot-message');
+    const forgotSubmitBtn = document.getElementById('forgot-submit-btn');
+    const resetForm = document.getElementById('reset-form');
+    const resetPasswordInput = document.getElementById('reset-password');
+    const resetConfirmPasswordInput = document.getElementById('reset-confirm-password');
+    const resetMessage = document.getElementById('reset-message');
+    const resetSubmitBtn = document.getElementById('reset-submit-btn');
 
     nameInput.maxLength = TEXT_LIMITS.name;
     emailInput.maxLength = TEXT_LIMITS.email;
     passwordInput.maxLength = TEXT_LIMITS.password;
+    forgotEmailInput.maxLength = TEXT_LIMITS.email;
+    resetPasswordInput.maxLength = TEXT_LIMITS.password;
+    resetConfirmPasswordInput.maxLength = TEXT_LIMITS.password;
+
+    function setPageMode(mode) {
+        var isForgotMode = mode === 'forgot';
+        var isResetMode = mode === 'reset';
+
+        authForm.style.display = isForgotMode || isResetMode ? 'none' : 'block';
+        authSwitch.style.display = isForgotMode || isResetMode ? 'none' : 'block';
+        forgotSection.style.display = isForgotMode ? 'block' : 'none';
+        resetSection.style.display = isResetMode ? 'block' : 'none';
+
+        if (isForgotMode) {
+            formTitle.textContent = 'Forgot Password';
+            formSubtitle.textContent = 'Recover access to your account';
+        } else if (isResetMode) {
+            formTitle.textContent = 'Reset Password';
+            formSubtitle.textContent = 'Set a secure new password';
+        } else {
+            formTitle.textContent = isLogin ? 'Welcome Back' : 'Create Account';
+            formSubtitle.textContent = isLogin ? 'Sign in to your account' : 'Fill in your details to get started';
+        }
+    }
+
+    function clearStatusMessage(el) {
+        if (!el) return;
+        el.textContent = '';
+        el.classList.remove('success', 'error');
+    }
+
+    function setStatusMessage(el, text, type) {
+        if (!el) return;
+        el.textContent = text;
+        el.classList.remove('success', 'error');
+        if (type === 'success' || type === 'error') {
+            el.classList.add(type);
+        }
+    }
 
     toggleLink.addEventListener('click', function(e) {
         e.preventDefault();
+        if (pageMode === 'forgot' || pageMode === 'reset') return;
         isLogin = !isLogin;
         formTitle.textContent    = isLogin ? 'Welcome Back'   : 'Create Account';
         formSubtitle.textContent = isLogin ? 'Sign in to your account' : 'Fill in your details to get started';
@@ -173,6 +229,114 @@ if (authForm) {
         toggleLink.textContent   = isLogin ? ' Register here' : ' Sign in instead';
         errorEl.textContent      = '';
     });
+
+    document.getElementById('forgot-link').addEventListener('click', function(e) {
+        e.preventDefault();
+        pageMode = 'forgot';
+        setPageMode(pageMode);
+        clearStatusMessage(forgotMessage);
+        authUrl.searchParams.set('mode', 'forgot');
+        authUrl.searchParams.delete('token');
+        window.history.replaceState({}, '', authUrl.pathname + authUrl.search);
+    });
+
+    document.getElementById('back-to-signin-from-forgot').addEventListener('click', function(e) {
+        e.preventDefault();
+        pageMode = null;
+        setPageMode(pageMode);
+        clearStatusMessage(forgotMessage);
+        authUrl.searchParams.delete('mode');
+        authUrl.searchParams.delete('token');
+        window.history.replaceState({}, '', authUrl.pathname + authUrl.search);
+    });
+
+    document.getElementById('back-to-signin-from-reset').addEventListener('click', function(e) {
+        e.preventDefault();
+        pageMode = null;
+        setPageMode(pageMode);
+        clearStatusMessage(resetMessage);
+        authUrl.searchParams.delete('mode');
+        authUrl.searchParams.delete('token');
+        window.history.replaceState({}, '', authUrl.pathname + authUrl.search);
+    });
+
+    forgotForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        clearStatusMessage(forgotMessage);
+
+        var email = normalizeText(forgotEmailInput.value, TEXT_LIMITS.email).toLowerCase();
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            setStatusMessage(forgotMessage, 'Please enter a valid email address.', 'error');
+            return;
+        }
+
+        setButtonState(forgotSubmitBtn, true, 'Send Reset Link', 'Sending...');
+        try {
+            var response = await apiRequest('/auth/forgot-password', 'POST', { email }, { skipAuth: true });
+            setStatusMessage(
+                forgotMessage,
+                response.msg || 'If an account with that email exists, a reset link has been sent.',
+                'success'
+            );
+        } catch (err) {
+            setStatusMessage(forgotMessage, err.message || 'Unable to process your request right now.', 'error');
+        } finally {
+            setButtonState(forgotSubmitBtn, false, 'Send Reset Link', 'Sending...');
+        }
+    });
+
+    resetForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        clearStatusMessage(resetMessage);
+
+        var newPassword = String(resetPasswordInput.value || '');
+        var confirmPassword = String(resetConfirmPasswordInput.value || '');
+
+        if (!resetToken || !/^[a-f\d]{64}$/i.test(resetToken)) {
+            setStatusMessage(resetMessage, 'Invalid or expired reset link.', 'error');
+            return;
+        }
+        if (!newPassword || !confirmPassword) {
+            setStatusMessage(resetMessage, 'Please fill in both password fields.', 'error');
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            setStatusMessage(resetMessage, 'Passwords do not match.', 'error');
+            return;
+        }
+        if (newPassword.length < 8 || !/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/\d/.test(newPassword)) {
+            setStatusMessage(resetMessage, 'Password must be 8+ chars with uppercase, lowercase, and a number.', 'error');
+            return;
+        }
+
+        setButtonState(resetSubmitBtn, true, 'Reset Password', 'Resetting...');
+        try {
+            var result = await apiRequest('/auth/reset-password/' + encodeURIComponent(resetToken), 'POST', {
+                password: newPassword,
+                confirmPassword: confirmPassword
+            }, { skipAuth: true });
+
+            setStatusMessage(resetMessage, result.msg || 'Password reset successful. You can now sign in.', 'success');
+            resetForm.reset();
+            authUrl.searchParams.delete('mode');
+            authUrl.searchParams.delete('token');
+            window.history.replaceState({}, '', authUrl.pathname + authUrl.search);
+
+            setTimeout(function() {
+                pageMode = null;
+                setPageMode(pageMode);
+            }, 1200);
+        } catch (err) {
+            setStatusMessage(resetMessage, err.message || 'Unable to reset password.', 'error');
+        } finally {
+            setButtonState(resetSubmitBtn, false, 'Reset Password', 'Resetting...');
+        }
+    });
+
+    setPageMode(pageMode === 'forgot' ? 'forgot' : (pageMode === 'reset' ? 'reset' : null));
+    if (pageMode === 'reset' && (!resetToken || !/^[a-f\d]{64}$/i.test(resetToken))) {
+        setStatusMessage(resetMessage, 'Invalid or expired reset link.', 'error');
+    }
 
     authForm.addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -194,13 +358,19 @@ if (authForm) {
             errorEl.textContent = 'Please enter your full name.';
             return;
         }
-        if (password.length < 6) {
-            errorEl.textContent = 'Password must be at least 6 characters.';
-            return;
-        }
         if (password.length > TEXT_LIMITS.password) {
             errorEl.textContent = 'Password is too long.';
             return;
+        }
+        if (!isLogin) {
+            if (password.length < 8) {
+                errorEl.textContent = 'Password must be at least 8 characters.';
+                return;
+            }
+            if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password)) {
+                errorEl.textContent = 'Password must include uppercase, lowercase, and a number.';
+                return;
+            }
         }
 
         setButtonState(submitBtn, true, isLogin ? 'Sign In' : 'Create Account', isLogin ? 'Signing in...' : 'Creating account...');

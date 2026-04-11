@@ -19,12 +19,28 @@ const UserSchema = new mongoose.Schema({
     password: { 
         type: String, 
         required: [true, 'Password is required'],
-        minlength: [6, 'Password must be at least 6 characters']
+        minlength: [8, 'Password must be at least 8 characters']
+    },
+    passwordResetToken: {
+        type: String,
+        default: null,
+        select: false
+    },
+    passwordResetExpires: {
+        type: Date,
+        default: null,
+        select: false
+    },
+    passwordChangedAt: {
+        type: Date,
+        default: null
     }
 }, { 
     timestamps: true,
     collection: 'users' // 🔥 Explicitly set collection name
 });
+
+UserSchema.index({ passwordResetToken: 1, passwordResetExpires: 1 });
 
 // Create and export the model
 const User = mongoose.model('User', UserSchema);

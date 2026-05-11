@@ -55,10 +55,11 @@ const sendEmail = async (options) => {
     try {
         await transporter.sendMail(mailOptions);
         console.log('Email sent successfully');
+        return true;
     } catch (error) {
         const safeHost = smtp.host ? smtp.host.slice(0, 80) : 'unknown';
         console.error(`Error sending email via host ${safeHost}:`, error.message);
-        throw error;
+        return false;
     }
 };
 

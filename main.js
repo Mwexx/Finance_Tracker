@@ -2,6 +2,7 @@
 
 const API_URL = '/api';
 const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
+const APP_NOTICE_VERSION = '2026-05-update';
 const TEXT_LIMITS = {
     name: 80,
     email: 254,
@@ -9,6 +10,22 @@ const TEXT_LIMITS = {
     description: 240,
     password: 128
 };
+
+const COUNTRY_CURRENCIES = [
+    { country: 'Kenya', currencyCode: 'KES', currencySymbol: 'Ksh' },
+    { country: 'Uganda', currencyCode: 'UGX', currencySymbol: 'USh' },
+    { country: 'Tanzania', currencyCode: 'TZS', currencySymbol: 'TSh' },
+    { country: 'Rwanda', currencyCode: 'RWF', currencySymbol: 'RF' },
+    { country: 'South Africa', currencyCode: 'ZAR', currencySymbol: 'R' },
+    { country: 'Nigeria', currencyCode: 'NGN', currencySymbol: '₦' },
+    { country: 'Ghana', currencyCode: 'GHS', currencySymbol: 'GH₵' },
+    { country: 'United States', currencyCode: 'USD', currencySymbol: '$' },
+    { country: 'Canada', currencyCode: 'CAD', currencySymbol: 'C$' },
+    { country: 'United Kingdom', currencyCode: 'GBP', currencySymbol: '£' },
+    { country: 'India', currencyCode: 'INR', currencySymbol: '₹' },
+    { country: 'Australia', currencyCode: 'AUD', currencySymbol: 'A$' },
+    { country: 'Eurozone', currencyCode: 'EUR', currencySymbol: '€' }
+];
 
 // Utility Helpers 
 
@@ -25,19 +42,45 @@ function getUser() {
     catch { return null; }
 }
 
+function setUser(user) {
+    try {
+        localStorage.setItem('user', JSON.stringify(user || {}));
+    } catch {
+        // Ignore storage failures and continue with in-memory state.
+    }
+}
+
+function getCountryCurrency(country) {
+    var normalized = normalizeText(country, 60).toLowerCase();
+    return COUNTRY_CURRENCIES.find(function(item) {
+        return item.country.toLowerCase() === normalized;
+    }) || COUNTRY_CURRENCIES[0];
+}
+
+function getActiveCurrencyInfo() {
+    var user = getUser();
+    return getCountryCurrency(user && user.country ? user.country : 'Kenya');
+}
+
+function formatMoney(amount, currencySymbol) {
+    var numericAmount = Number(amount);
+    if (!Number.isFinite(numericAmount)) numericAmount = 0;
+    var symbol = currencySymbol || getActiveCurrencyInfo().currencySymbol || 'Ksh';
+    return symbol + ' ' + numericAmount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
 function clearSession() {
     try {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        sessionStorage.removeItem('finance-tracker-biometric-unlocked');
     } catch {
         // Ignore storage failures and continue with logout flow.
     }
 }
 
 function formatKsh(amount) {
-    var numericAmount = Number(amount);
-    if (!Number.isFinite(numericAmount)) numericAmount = 0;
-    return 'Ksh ' + numericAmount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return formatMoney(amount);
 }
 
 function formatDate(dateStr) {
@@ -156,6 +199,12 @@ if (authForm) {
     const formSubtitle  = document.getElementById('form-subtitle');
     const nameGroup     = document.getElementById('name-group');
     const nameInput     = document.getElementById('name');
+    const countryGroup   = document.getElementById('country-group');
+    const countryInput   = document.getElementById('country');
+    const phoneGroup     = document.getElementById('phone-group');
+    const phoneInput     = document.getElementById('phone-number');
+    const currencyGroup  = document.getElementById('currency-group');
+    const currencyPreview = document.getElementById('currency-preview');
     const submitBtn     = document.getElementById('auth-submit-btn');
     const errorEl       = document.getElementById('auth-error');
     const emailInput    = document.getElementById('email');
@@ -179,6 +228,9 @@ if (authForm) {
     forgotEmailInput.maxLength = TEXT_LIMITS.email;
     resetPasswordInput.maxLength = TEXT_LIMITS.password;
     resetConfirmPasswordInput.maxLength = TEXT_LIMITS.password;
+    populateCountrySelect(countryInput, getActiveCurrencyInfo().country);
+    updateCurrencyPreview(countryInput, currencyPreview);
+    if (phoneInput) phoneInput.maxLength = 24;
 
     function setPageMode(mode) {
         var isForgotMode = mode === 'forgot';
@@ -223,12 +275,22 @@ if (authForm) {
         formTitle.textContent    = isLogin ? 'Welcome Back'   : 'Create Account';
         formSubtitle.textContent = isLogin ? 'Sign in to your account' : 'Fill in your details to get started';
         nameGroup.style.display  = isLogin ? 'none' : 'block';
+        if (countryGroup) countryGroup.style.display = isLogin ? 'none' : 'block';
+        if (phoneGroup) phoneGroup.style.display = isLogin ? 'none' : 'block';
+        if (currencyGroup) currencyGroup.style.display = isLogin ? 'none' : 'block';
         nameInput.required       = !isLogin;
+        if (countryInput) countryInput.required = !isLogin;
         submitBtn.textContent    = isLogin ? 'Sign In' : 'Create Account';
         switchLabel.textContent  = isLogin ? "Don't have an account?" : 'Already have an account?';
         toggleLink.textContent   = isLogin ? ' Register here' : ' Sign in instead';
         errorEl.textContent      = '';
     });
+
+    if (countryInput) {
+        countryInput.addEventListener('change', function() {
+            updateCurrencyPreview(countryInput, currencyPreview);
+        });
+    }
 
     document.getElementById('forgot-link').addEventListener('click', function(e) {
         e.preventDefault();
@@ -295,7 +357,7 @@ if (authForm) {
         if (!resetToken || !/^[a-f\d]{64}$/i.test(resetToken)) {
             setStatusMessage(resetMessage, 'Invalid or expired reset link.', 'error');
             return;
-        }
+            }
         if (!newPassword || !confirmPassword) {
             setStatusMessage(resetMessage, 'Please fill in both password fields.', 'error');
             return;
@@ -377,11 +439,17 @@ if (authForm) {
 
         try {
             const endpoint = isLogin ? '/auth/login' : '/auth/register';
-            const body     = isLogin ? { email, password } : { name, email, password };
+            const body     = isLogin ? { email, password } : {
+                name,
+                email,
+                password,
+                country: countryInput ? countryInput.value : 'Kenya',
+                phoneNumber: phoneInput ? normalizeText(phoneInput.value, 24) : ''
+            };
 
             const result = await apiRequest(endpoint, 'POST', body, { skipAuth: true });
             localStorage.setItem('token', result.token);
-            localStorage.setItem('user', JSON.stringify(result.user));
+            setUser(result.user);
             window.location.href = '/dashboard';
         } catch (err) {
             errorEl.textContent = err.message || 'Authentication failed. Please try again.';
@@ -404,12 +472,42 @@ if (dashboardContainer) {
     var allBudgets       = [];
     var pieChartInstance = null;
     var barChartInstance = null;
+    var currentUserProfile = getUser() || {};
+
+    const updateBanner = document.getElementById('update-banner');
+    const updateBannerText = document.getElementById('update-banner-text');
+    const dismissUpdateBtn = document.getElementById('dismiss-update-banner');
+    const accountForm = document.getElementById('account-form');
+    const accountNameInput = document.getElementById('account-name');
+    const accountCountryInput = document.getElementById('account-country');
+    const accountPhoneInput = document.getElementById('account-phone');
+    const accountCurrencyInput = document.getElementById('account-currency');
+    const accountBiometricToggle = document.getElementById('account-biometric');
+    const accountSaveBtn = document.getElementById('account-save-btn');
+    const biometricSetupBtn = document.getElementById('biometric-setup-btn');
+    const biometricOverlay = document.getElementById('biometric-overlay');
+    const biometricUnlockBtn = document.getElementById('biometric-unlock-btn');
+    const biometricSkipBtn = document.getElementById('biometric-skip-btn');
+    const reportForm = document.getElementById('report-form');
+    const reportGenerateBtn = document.getElementById('report-generate-btn');
+    const reportExportCsvBtn = document.getElementById('report-export-csv-btn');
+    const reportExportPdfBtn = document.getElementById('report-export-pdf-btn');
+    const reportStatus = document.getElementById('report-status');
+    const reportSummary = document.getElementById('report-summary');
+    const archiveForm = document.getElementById('archive-form');
+    const archiveMonthInput = document.getElementById('archive-month');
+    const archiveStartInput = document.getElementById('archive-start');
+    const archiveEndInput = document.getElementById('archive-end');
+    const archiveMonthBtn = document.getElementById('archive-month-btn');
+    const archiveRangeBtn = document.getElementById('archive-range-btn');
+    const restoreMonthBtn = document.getElementById('restore-month-btn');
+    const restoreRangeBtn = document.getElementById('restore-range-btn');
+    const refreshArchivedBtn = document.getElementById('refresh-archived-btn');
+    const archivedList = document.getElementById('archived-list');
+    const archiveStatus = document.getElementById('archive-status');
 
     // Greet user
-    const user = getUser();
-    if (user) {
-        document.getElementById('user-greeting').textContent = 'Hello, ' + (normalizeText(user.name, TEXT_LIMITS.name) || 'there');
-    }
+    applyProfileToUI(currentUserProfile);
 
     // Default date for new transaction = today
     document.getElementById('t-date').value = new Date().toISOString().split('T')[0];
@@ -420,7 +518,606 @@ if (dashboardContainer) {
         window.location.href = '/';
     });
 
+    if (dismissUpdateBtn) {
+        dismissUpdateBtn.addEventListener('click', dismissUpdateNotice);
+    }
+
+    if (biometricUnlockBtn) {
+        biometricUnlockBtn.addEventListener('click', unlockWithBiometrics);
+    }
+
+    if (biometricSkipBtn) {
+        biometricSkipBtn.addEventListener('click', function() {
+            sessionStorage.setItem('finance-tracker-biometric-unlocked', '1');
+            hideBiometricOverlay();
+            loadDashboard();
+            queueMonthlyReportAutoCheck();
+        });
+    }
+
+    if (accountCountryInput) {
+        populateCountrySelect(accountCountryInput, currentUserProfile.country || getActiveCurrencyInfo().country);
+        updateCurrencyPreview(accountCountryInput, accountCurrencyInput);
+        accountCountryInput.addEventListener('change', function() {
+            updateCurrencyPreview(accountCountryInput, accountCurrencyInput);
+        });
+    }
+
+    if (biometricSetupBtn) {
+        biometricSetupBtn.addEventListener('click', enrollBiometricFromProfile);
+    }
+
+    if (accountForm) {
+        accountForm.addEventListener('submit', saveAccountSettings);
+    }
+
+    if (reportForm) {
+        reportForm.addEventListener('submit', generateMonthlyReport);
+    }
+
+    if (reportExportCsvBtn) {
+        reportExportCsvBtn.addEventListener('click', function() {
+            downloadMonthlyReport('csv');
+        });
+    }
+
+    if (reportExportPdfBtn) {
+        reportExportPdfBtn.addEventListener('click', function() {
+            downloadMonthlyReport('pdf');
+        });
+    }
+
+    if (archiveMonthInput && !archiveMonthInput.value) {
+        archiveMonthInput.value = getDefaultArchiveMonth();
+    }
+
+    if (archiveMonthBtn) {
+        archiveMonthBtn.addEventListener('click', function() {
+            archiveTransactionsByPeriod({ month: archiveMonthInput ? archiveMonthInput.value : '' });
+        });
+    }
+
+    if (archiveRangeBtn) {
+        archiveRangeBtn.addEventListener('click', function() {
+            archiveTransactionsByPeriod({
+                startDate: archiveStartInput ? archiveStartInput.value : '',
+                endDate: archiveEndInput ? archiveEndInput.value : ''
+            });
+        });
+    }
+
+    if (restoreMonthBtn) {
+        restoreMonthBtn.addEventListener('click', function() {
+            restoreTransactionsByPeriod({ month: archiveMonthInput ? archiveMonthInput.value : '' });
+        });
+    }
+
+    if (restoreRangeBtn) {
+        restoreRangeBtn.addEventListener('click', function() {
+            restoreTransactionsByPeriod({
+                startDate: archiveStartInput ? archiveStartInput.value : '',
+                endDate: archiveEndInput ? archiveEndInput.value : ''
+            });
+        });
+    }
+
+    if (refreshArchivedBtn) {
+        refreshArchivedBtn.addEventListener('click', function() {
+            loadArchivedTransactions();
+        });
+    }
+
+    if (archivedList) {
+        archivedList.addEventListener('click', function(e) {
+            var button = e.target.closest('button[data-action="unarchive-transaction"]');
+            if (!button) return;
+            unarchiveTransaction(button.getAttribute('data-id'));
+        });
+    }
+
     // Load Everything
+
+    function showStatusText(el, text, type) {
+        if (!el) return;
+        el.textContent = text || '';
+        el.classList.remove('success', 'error');
+        if (type === 'success' || type === 'error') {
+            el.classList.add(type);
+        }
+    }
+
+    function getDefaultArchiveMonth() {
+        var now = new Date();
+        now.setMonth(now.getMonth() - 1);
+        return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    }
+
+    async function fetchBinary(endpoint) {
+        var options = {
+            method: 'GET',
+            headers: { 'Accept': '*/*' }
+        };
+        var token = getToken();
+        if (token) {
+            options.headers['x-auth-token'] = token;
+        }
+
+        var response = await fetch(API_URL + endpoint, options);
+        if (!response.ok) {
+            var text = await response.text();
+            throw new Error(text || ('Request failed (' + response.status + ')'));
+        }
+        return response;
+    }
+
+    function triggerDownload(blob, fileName) {
+        var url = URL.createObjectURL(blob);
+        var anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = fileName;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        setTimeout(function() {
+            URL.revokeObjectURL(url);
+        }, 1000);
+    }
+
+    function applyProfileToUI(profile) {
+        profile = profile || {};
+        currentUserProfile = profile;
+        setUser(profile);
+
+        if (profile.name) {
+            document.getElementById('user-greeting').textContent = 'Hello, ' + (normalizeText(profile.name, TEXT_LIMITS.name) || 'there');
+        }
+
+        if (accountNameInput) accountNameInput.value = profile.name || '';
+        if (accountCountryInput) {
+            populateCountrySelect(accountCountryInput, profile.country || getActiveCurrencyInfo().country);
+            updateCurrencyPreview(accountCountryInput, accountCurrencyInput);
+        }
+        if (accountPhoneInput) accountPhoneInput.value = profile.phoneNumber || '';
+        if (accountBiometricToggle) accountBiometricToggle.checked = !!profile.biometricEnabled;
+
+        if (updateBannerText) {
+            updateBannerText.textContent = 'A new version of Finance Tracker is available. Review the changes and confirm your account settings to keep your profile in sync.';
+        }
+
+        if (profile.appNoticeVersionSeen !== APP_NOTICE_VERSION) {
+            showUpdateBanner();
+        } else {
+            hideUpdateBanner();
+        }
+    }
+
+    function showUpdateBanner() {
+        if (updateBanner) updateBanner.style.display = 'flex';
+    }
+
+    function hideUpdateBanner() {
+        if (updateBanner) updateBanner.style.display = 'none';
+    }
+
+    async function dismissUpdateNotice() {
+        try {
+            var result = await apiRequest('/auth/me', 'PUT', { appNoticeVersionSeen: APP_NOTICE_VERSION });
+            if (result && result.user) {
+                applyProfileToUI(result.user);
+            }
+            hideUpdateBanner();
+        } catch (err) {
+            alert('Could not dismiss the update notice: ' + err.message);
+        }
+    }
+
+    function biometricCredentialStorageKey() {
+        return 'finance-tracker-biometric-credential-id';
+    }
+
+    function hasBiometricSessionUnlock() {
+        try {
+            return sessionStorage.getItem('finance-tracker-biometric-unlocked') === '1';
+        } catch {
+            return false;
+        }
+    }
+
+    function supportsBiometricUnlock() {
+        return typeof window.PublicKeyCredential !== 'undefined' && !!navigator.credentials;
+    }
+
+    function bufferToBase64Url(buffer) {
+        var bytes = new Uint8Array(buffer);
+        var binary = '';
+        for (var i = 0; i < bytes.byteLength; i += 1) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+    }
+
+    function base64UrlToBuffer(value) {
+        var normalized = String(value || '').replace(/-/g, '+').replace(/_/g, '/');
+        while (normalized.length % 4) normalized += '=';
+        var binary = atob(normalized);
+        var bytes = new Uint8Array(binary.length);
+        for (var i = 0; i < binary.length; i += 1) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes.buffer;
+    }
+
+    function hideBiometricOverlay() {
+        if (biometricOverlay) biometricOverlay.style.display = 'none';
+    }
+
+    function showBiometricOverlay() {
+        if (biometricOverlay) biometricOverlay.style.display = 'flex';
+    }
+
+    async function enrollBiometricCredential(profile) {
+        profile = profile || currentUserProfile;
+        if (!supportsBiometricUnlock()) {
+            throw new Error('Biometric unlock is not supported in this browser.');
+        }
+
+        var userId = window.crypto.getRandomValues(new Uint8Array(32));
+        var challenge = window.crypto.getRandomValues(new Uint8Array(32));
+        var credential = await navigator.credentials.create({
+            publicKey: {
+                challenge: challenge,
+                rp: { name: 'Finance Tracker' },
+                user: {
+                    id: userId,
+                    name: profile.email || 'user@finance-tracker.local',
+                    displayName: profile.name || 'Finance Tracker User'
+                },
+                pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
+                timeout: 60000,
+                attestation: 'none',
+                authenticatorSelection: {
+                    authenticatorAttachment: 'platform',
+                    userVerification: 'required',
+                    residentKey: 'preferred'
+                }
+            }
+        });
+
+        if (!credential || !credential.id) {
+            throw new Error('Biometric enrollment was not completed.');
+        }
+
+        localStorage.setItem(biometricCredentialStorageKey(), credential.id);
+        sessionStorage.setItem('finance-tracker-biometric-unlocked', '1');
+        return credential.id;
+    }
+
+    async function enrollBiometricFromProfile() {
+        try {
+            var nextName = accountNameInput ? normalizeText(accountNameInput.value, TEXT_LIMITS.name) : currentUserProfile.name;
+            var nextCountry = accountCountryInput ? accountCountryInput.value : currentUserProfile.country;
+            var nextPhone = accountPhoneInput ? normalizeText(accountPhoneInput.value, 24) : '';
+
+            if (!nextName) nextName = currentUserProfile.name || '';
+            if (!nextCountry) nextCountry = currentUserProfile.country || getActiveCurrencyInfo().country;
+
+            await enrollBiometricCredential({
+                name: nextName,
+                email: currentUserProfile.email,
+                country: nextCountry
+            });
+
+            if (accountBiometricToggle) accountBiometricToggle.checked = true;
+
+            var result = await apiRequest('/auth/me', 'PUT', {
+                name: nextName,
+                country: nextCountry,
+                phoneNumber: nextPhone,
+                biometricEnabled: true
+            });
+
+            if (result && result.user) {
+                applyProfileToUI(result.user);
+            }
+
+            showStatusText(reportStatus, 'Biometric unlock enrolled successfully.', 'success');
+        } catch (err) {
+            showStatusText(reportStatus, err.message || 'Could not enroll biometrics.', 'error');
+        }
+    }
+
+    async function unlockWithBiometrics() {
+        try {
+            if (!supportsBiometricUnlock()) {
+                throw new Error('Biometric unlock is not supported in this browser.');
+            }
+
+            var credentialId = localStorage.getItem(biometricCredentialStorageKey());
+            if (!credentialId) {
+                throw new Error('No biometric credential is enrolled on this device. Enable it in Account Settings first.');
+            }
+
+            var challenge = window.crypto.getRandomValues(new Uint8Array(32));
+            await navigator.credentials.get({
+                publicKey: {
+                    challenge: challenge,
+                    allowCredentials: [{ id: base64UrlToBuffer(credentialId), type: 'public-key' }],
+                    userVerification: 'required',
+                    timeout: 60000
+                }
+            });
+
+            sessionStorage.setItem('finance-tracker-biometric-unlocked', '1');
+            hideBiometricOverlay();
+            await loadDashboard();
+            queueMonthlyReportAutoCheck();
+        } catch (err) {
+            alert(err.message || 'Biometric unlock failed.');
+        }
+    }
+
+    async function saveAccountSettings(e) {
+        e.preventDefault();
+        var btn = accountSaveBtn || e.target.querySelector('button[type="submit"]');
+        setButtonState(btn, true, 'Save Account Settings', 'Saving...');
+
+        try {
+            var nextName = accountNameInput ? normalizeText(accountNameInput.value, TEXT_LIMITS.name) : currentUserProfile.name;
+            var nextCountry = accountCountryInput ? accountCountryInput.value : currentUserProfile.country;
+            var nextPhone = accountPhoneInput ? normalizeText(accountPhoneInput.value, 24) : '';
+            var nextBiometricEnabled = !!(accountBiometricToggle && accountBiometricToggle.checked);
+
+            if (!nextName) nextName = currentUserProfile.name || '';
+            if (!nextCountry) nextCountry = currentUserProfile.country || getActiveCurrencyInfo().country;
+
+            if (nextBiometricEnabled && !localStorage.getItem(biometricCredentialStorageKey())) {
+                await enrollBiometricCredential({
+                    name: nextName || currentUserProfile.name,
+                    email: currentUserProfile.email,
+                    country: nextCountry
+                });
+            }
+
+            var result = await apiRequest('/auth/me', 'PUT', {
+                name: nextName,
+                country: nextCountry,
+                phoneNumber: nextPhone,
+                biometricEnabled: nextBiometricEnabled
+            });
+
+            if (result && result.user) {
+                applyProfileToUI(result.user);
+            }
+
+            showStatusText(reportStatus, 'Account settings saved successfully.', 'success');
+            await loadDashboard();
+        } catch (err) {
+            showStatusText(reportStatus, err.message || 'Could not save account settings.', 'error');
+        } finally {
+            setButtonState(btn, false, 'Save Account Settings', 'Saving...');
+        }
+    }
+
+    function renderReportSummary(report) {
+        if (!reportSummary) return;
+        if (!report) {
+            reportSummary.innerHTML = '<p class="empty-msg">Generate a monthly report to see the summary here.</p>';
+            return;
+        }
+
+        var currency = report.currency && report.currency.symbol ? report.currency.symbol : getActiveCurrencyInfo().currencySymbol;
+        var categoryRows = (report.categoryTotals || []).map(function(entry) {
+            return '<li><strong>' + escapeHtml(entry.category) + '</strong>: ' + formatMoney(entry.total, currency) + '</li>';
+        }).join('');
+        if (!categoryRows) {
+            categoryRows = '<li>No spending recorded for that month.</li>';
+        }
+
+        var budgetRows = (report.budgetSnapshots || []).map(function(snapshot) {
+            return '<tr>' +
+                '<td>' + escapeHtml(snapshot.category) + '</td>' +
+                '<td>' + formatMoney(snapshot.limit, currency) + '</td>' +
+                '<td>' + formatMoney(snapshot.spent, currency) + '</td>' +
+                '<td>' + snapshot.percentage.toFixed(1) + '%</td>' +
+            '</tr>';
+        }).join('');
+
+        if (!budgetRows) {
+            budgetRows = '<tr><td colspan="4" class="empty-msg">No budgets set for this month.</td></tr>';
+        }
+
+        reportSummary.innerHTML =
+            '<div class="report-summary-grid">' +
+                '<div><span>Month</span><strong>' + escapeHtml(report.monthLabel || '') + '</strong></div>' +
+                '<div><span>Income</span><strong>' + formatMoney(report.summary.income, currency) + '</strong></div>' +
+                '<div><span>Expenses</span><strong>' + formatMoney(report.summary.expense, currency) + '</strong></div>' +
+                '<div><span>Balance</span><strong>' + formatMoney(report.summary.balance, currency) + '</strong></div>' +
+            '</div>' +
+            '<div class="report-summary-columns">' +
+                '<div>' +
+                    '<h4>Top Categories</h4>' +
+                    '<ul class="report-list">' + categoryRows + '</ul>' +
+                '</div>' +
+                '<div>' +
+                    '<h4>Budget Snapshot</h4>' +
+                    '<div class="table-wrapper report-table-wrapper"><table><thead><tr><th>Category</th><th>Limit</th><th>Spent</th><th>Used</th></tr></thead><tbody>' + budgetRows + '</tbody></table></div>' +
+                '</div>' +
+            '</div>';
+    }
+
+    async function generateMonthlyReport(e) {
+        e.preventDefault();
+        var btn = reportGenerateBtn || e.target.querySelector('button[type="submit"]');
+        setButtonState(btn, true, 'Generate Monthly Report', 'Generating...');
+        showStatusText(reportStatus, 'Generating monthly report...', '');
+
+        try {
+            var result = await apiRequest('/reports/monthly/send', 'POST', {});
+            if (result && result.report) {
+                renderReportSummary(result.report);
+            }
+            showStatusText(reportStatus, result.msg || 'Monthly report generated successfully.', 'success');
+        } catch (err) {
+            showStatusText(reportStatus, err.message || 'Could not generate the report.', 'error');
+        } finally {
+            setButtonState(btn, false, 'Generate Monthly Report', 'Generating...');
+        }
+    }
+
+    async function downloadMonthlyReport(format) {
+        try {
+            var endpoint = '/reports/monthly/export?format=' + encodeURIComponent(format || 'csv');
+            var response = await fetchBinary(endpoint);
+            var blob = await response.blob();
+            var monthKey = response.headers.get('content-disposition') || 'finance-report';
+            var fileName = format === 'pdf' ? 'finance-report.pdf' : 'finance-report.csv';
+            if (/finance-report-[\d-]+/i.test(monthKey)) {
+                var match = monthKey.match(/finance-report-[\d-]+/i);
+                if (match) {
+                    fileName = match[0] + (format === 'pdf' ? '.pdf' : '.csv');
+                }
+            }
+            triggerDownload(blob, fileName);
+            showStatusText(reportStatus, 'Monthly report downloaded as ' + format.toUpperCase() + '.', 'success');
+        } catch (err) {
+            showStatusText(reportStatus, err.message || 'Could not download the report.', 'error');
+        }
+    }
+
+    async function archiveTransactionsByPeriod(payload) {
+        try {
+            var cleanedPayload = {};
+            if (payload.month) cleanedPayload.month = payload.month;
+            if (payload.startDate) cleanedPayload.startDate = payload.startDate;
+            if (payload.endDate) cleanedPayload.endDate = payload.endDate;
+
+            if (!cleanedPayload.month && !cleanedPayload.startDate && !cleanedPayload.endDate) {
+                throw new Error('Select a month or date range to archive.');
+            }
+
+            var archivePeriod = cleanedPayload.month || (cleanedPayload.startDate && cleanedPayload.endDate ? cleanedPayload.startDate + ' to ' + cleanedPayload.endDate : '');
+            var result = await apiRequest('/transactions/archive', 'POST', {
+                ...cleanedPayload,
+                archivePeriod: archivePeriod
+            });
+
+            showStatusText(archiveStatus, result.msg || 'Transactions archived successfully.', 'success');
+            await loadDashboard();
+            await loadArchivedTransactions();
+        } catch (err) {
+            showStatusText(archiveStatus, err.message || 'Could not archive transactions.', 'error');
+        }
+    }
+
+    async function restoreTransactionsByPeriod(payload) {
+        try {
+            var cleanedPayload = {};
+            if (payload.month) cleanedPayload.month = payload.month;
+            if (payload.startDate) cleanedPayload.startDate = payload.startDate;
+            if (payload.endDate) cleanedPayload.endDate = payload.endDate;
+
+            if (!cleanedPayload.month && !cleanedPayload.startDate && !cleanedPayload.endDate) {
+                throw new Error('Select a month or date range to restore.');
+            }
+
+            var archivePeriod = cleanedPayload.month || (cleanedPayload.startDate && cleanedPayload.endDate ? cleanedPayload.startDate + ' to ' + cleanedPayload.endDate : '');
+            var result = await apiRequest('/transactions/unarchive', 'POST', {
+                ...cleanedPayload,
+                archivePeriod: archivePeriod
+            });
+
+            showStatusText(archiveStatus, result.msg || 'Transactions restored successfully.', 'success');
+            await loadDashboard();
+            await loadArchivedTransactions();
+        } catch (err) {
+            showStatusText(archiveStatus, err.message || 'Could not restore transactions.', 'error');
+        }
+    }
+
+    async function unarchiveTransaction(transactionId) {
+        if (!isValidObjectId(transactionId)) {
+            showStatusText(archiveStatus, 'Selected transaction is invalid.', 'error');
+            return;
+        }
+
+        try {
+            var result = await apiRequest('/transactions/unarchive', 'POST', { ids: [transactionId] });
+            showStatusText(archiveStatus, result.msg || 'Transaction restored successfully.', 'success');
+            await loadDashboard();
+            await loadArchivedTransactions();
+        } catch (err) {
+            showStatusText(archiveStatus, err.message || 'Could not restore transaction.', 'error');
+        }
+    }
+
+    async function loadArchivedTransactions() {
+        if (!archivedList) return;
+
+        try {
+            var transactions = await apiRequest('/transactions/archived');
+            renderArchivedTransactions(transactions);
+        } catch (err) {
+            archivedList.innerHTML = '<p class="empty-msg">Unable to load archived transactions.</p>';
+            console.error('Failed to load archived transactions:', err.message);
+        }
+    }
+
+    function renderArchivedTransactions(transactions) {
+        if (!archivedList) return;
+        if (!transactions || !transactions.length) {
+            archivedList.innerHTML = '<p class="empty-msg">No archived transactions yet.</p>';
+            return;
+        }
+
+        archivedList.innerHTML = '<div class="table-wrapper"><table class="archived-table"><thead><tr><th>Date</th><th>Category</th><th>Type</th><th>Amount</th><th>Archived</th><th>Action</th></tr></thead><tbody>' +
+            transactions.map(function(t) {
+                return '<tr>' +
+                    '<td>' + formatDate(t.date) + '</td>' +
+                    '<td>' + escapeHtml(t.category) + '</td>' +
+                    '<td><span class="type-badge ' + t.type + '">' + (t.type === 'income' ? 'Income' : 'Expense') + '</span></td>' +
+                    '<td>' + formatKsh(t.amount) + '</td>' +
+                    '<td>' + formatDate(t.archivedAt || t.updatedAt || t.createdAt || t.date) + '</td>' +
+                    '<td><button type="button" class="btn-secondary btn-auto" data-action="unarchive-transaction" data-id="' + escapeHtml(t._id) + '">Unarchive</button></td>' +
+                '</tr>';
+            }).join('') + '</tbody></table></div>';
+    }
+
+    async function queueMonthlyReportAutoCheck() {
+        try {
+            var result = await apiRequest('/reports/monthly/auto', 'POST', {});
+            if (result && result.report) {
+                renderReportSummary(result.report);
+                showStatusText(reportStatus, 'Previous month report generated automatically.', 'success');
+            }
+        } catch (err) {
+            console.error('Monthly report auto-check failed:', err.message);
+        }
+    }
+
+    async function bootstrapDashboard() {
+        try {
+            var profileResult = await apiRequest('/auth/me');
+            if (profileResult && profileResult.user) {
+                applyProfileToUI(profileResult.user);
+            }
+
+            if (currentUserProfile.biometricEnabled && !hasBiometricSessionUnlock()) {
+                showBiometricOverlay();
+                return;
+            }
+
+            hideBiometricOverlay();
+            await loadDashboard();
+            await loadArchivedTransactions();
+            queueMonthlyReportAutoCheck();
+        } catch (err) {
+            console.error('Failed to initialize dashboard:', err.message);
+            if (/token|authoriz/i.test(err.message)) {
+                clearSession();
+                window.location.href = '/';
+            }
+        }
+    }
 
     async function loadDashboard() {
         try {
@@ -445,7 +1142,7 @@ if (dashboardContainer) {
         }
     }
 
-    loadDashboard();
+    bootstrapDashboard();
 
     // Summary Cards 
 
@@ -529,7 +1226,7 @@ if (dashboardContainer) {
                     legend: { position: 'bottom', labels: { padding: 14, font: { size: 12 } } },
                     tooltip: {
                         callbacks: {
-                            label: function(ctx) { return ' ' + ctx.label + ': Ksh ' + ctx.parsed.toFixed(2); }
+                            label: function(ctx) { return ' ' + ctx.label + ': ' + formatKsh(ctx.parsed); }
                         }
                     }
                 }
@@ -610,7 +1307,7 @@ if (dashboardContainer) {
                     tooltip: {
                         callbacks: {
                             label: function(ctx) {
-                                return ' ' + ctx.dataset.label + ': Ksh ' + ctx.parsed.y.toFixed(2);
+                                return ' ' + ctx.dataset.label + ': ' + formatKsh(ctx.parsed.y);
                             }
                         }
                     }
@@ -619,7 +1316,7 @@ if (dashboardContainer) {
                     y: {
                         beginAtZero: true,
                         ticks: {
-                            callback: function(val) { return 'Ksh ' + val; }
+                            callback: function(val) { return formatKsh(val); }
                         }
                     }
                 }
@@ -647,8 +1344,8 @@ if (dashboardContainer) {
                 '<div class="budget-item-header">' +
                     '<span class="budget-category">' + escapeHtml(b.category) + '</span>' +
                     '<div class="budget-amounts">' +
-                        '<span class="budget-spent ' + statusClass + '">Ksh ' + spent.toFixed(2) + '</span>' +
-                        '<span class="budget-limit"> / Ksh ' + b.limit.toFixed(2) + '</span>' +
+                        '<span class="budget-spent ' + statusClass + '">' + formatKsh(spent) + '</span>' +
+                        '<span class="budget-limit"> / ' + formatKsh(b.limit) + '</span>' +
                         '<button type="button" class="btn-delete-sm" data-action="delete-budget" data-id="' + escapeHtml(budgetId) + '" aria-label="Delete budget"' + (budgetId ? '' : ' disabled') + '>&times;</button>' +
                     '</div>' +
                 '</div>' +
@@ -872,4 +1569,21 @@ if (dashboardContainer) {
         document.getElementById('filter-end').value      = '';
         updateTransactionTable(allTransactions);
     });
+}
+
+function populateCountrySelect(selectEl, selectedCountry) {
+    if (!selectEl) return;
+    selectEl.innerHTML = COUNTRY_CURRENCIES.map(function(entry) {
+        return '<option value="' + escapeHtml(entry.country) + '">' + escapeHtml(entry.country) + ' (' + escapeHtml(entry.currencyCode) + ')</option>';
+    }).join('');
+    if (selectedCountry) {
+        selectEl.value = selectedCountry;
+    }
+}
+
+function updateCurrencyPreview(countrySelect, currencyField, codeField) {
+    if (!countrySelect) return;
+    var info = getCountryCurrency(countrySelect.value);
+    if (currencyField) currencyField.value = info.currencySymbol + ' - ' + info.currencyCode;
+    if (codeField) codeField.value = info.currencyCode;
 }

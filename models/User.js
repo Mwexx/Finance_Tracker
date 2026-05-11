@@ -8,6 +8,43 @@ const UserSchema = new mongoose.Schema({
         trim: true,
         minlength: [2, 'Name must be at least 2 characters']
     },
+    country: {
+        type: String,
+        default: 'Kenya',
+        trim: true
+    },
+    phoneNumber: {
+        type: String,
+        default: '',
+        trim: true
+    },
+    currencyCode: {
+        type: String,
+        default: 'KES',
+        trim: true,
+        uppercase: true
+    },
+    currencySymbol: {
+        type: String,
+        default: 'Ksh',
+        trim: true
+    },
+    biometricEnabled: {
+        type: Boolean,
+        default: false
+    },
+    appNoticeVersionSeen: {
+        type: String,
+        default: ''
+    },
+    lastMonthlyReportMonth: {
+        type: String,
+        default: ''
+    },
+    lastMonthlyReportAt: {
+        type: Date,
+        default: null
+    },
     email: { 
         type: String, 
         required: [true, 'Email is required'],

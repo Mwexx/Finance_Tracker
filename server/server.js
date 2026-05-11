@@ -342,6 +342,7 @@ app.get(['/index.html', '/dashboard.html', '/main.js', '/style.css'], (req, res)
 const authRoutes = require('./routes/authRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const budgetRoutes = require('./routes/budgetRoutes');
+const reportRoutes = require('./routes/reportRoutes');
 
 // ============================================
 // 6. REGISTER API ROUTES
@@ -366,6 +367,7 @@ app.use('/api', async (req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/budgets', budgetRoutes);
+app.use('/api/reports', reportRoutes);
 
 // API Health Check Endpoint
 app.get('/api/health', (req, res) => {

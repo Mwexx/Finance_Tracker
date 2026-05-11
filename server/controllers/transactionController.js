@@ -17,6 +17,53 @@ function normalizeText(value, maxLength) {
         .slice(0, maxLength);
 }
 
+function parseDateOrNull(value) {
+    if (!value) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getMonthKeyFromDate(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function buildArchiveFilter(body) {
+    const ids = Array.isArray(body.ids) ? body.ids.filter((value) => mongoose.Types.ObjectId.isValid(value)) : [];
+    if (ids.length) {
+        return { _id: { $in: ids } };
+    }
+
+    const startDate = parseDateOrNull(body.startDate);
+    const endDate = parseDateOrNull(body.endDate);
+    const month = normalizeText(body.month, 7);
+
+    if (month && /^\d{4}-\d{2}$/.test(month)) {
+        const [year, monthNumber] = month.split('-').map((part) => Number(part));
+        return {
+            date: {
+                $gte: new Date(year, monthNumber - 1, 1),
+                $lte: new Date(year, monthNumber, 0, 23, 59, 59, 999)
+            }
+        };
+    }
+
+    if (startDate || endDate) {
+        const range = {};
+        if (startDate) range.$gte = startDate;
+        if (endDate) {
+            endDate.setHours(23, 59, 59, 999);
+            range.$lte = endDate;
+        }
+        return { date: range };
+    }
+
+    return null;
+}
+
+function getCurrencySymbol(user) {
+    return normalizeText(user?.currencySymbol || 'Ksh', 8) || 'Ksh';
+}
+
 // Add Transaction
 exports.addTransaction = async (req, res) => {
     const type = normalizeText(req.body.type, 10);
@@ -67,6 +114,14 @@ exports.addTransaction = async (req, res) => {
 exports.getTransactions = async (req, res) => {
     try {
         const filter = { userId: req.user.id };
+        const includeArchived = String(req.query.includeArchived || '').toLowerCase() === 'true';
+        const archivedOnly = String(req.query.archivedOnly || '').toLowerCase() === 'true';
+
+        if (archivedOnly) {
+            filter.isArchived = true;
+        } else if (!includeArchived) {
+            filter.isArchived = { $ne: true };
+        }
 
         if (req.query.type && ['income', 'expense'].includes(req.query.type)) {
             filter.type = req.query.type;
@@ -99,6 +154,64 @@ exports.getTransactions = async (req, res) => {
         res.json(transactions);
     } catch (err) {
         res.status(500).json({ msg: 'Server Error' });
+    }
+};
+
+exports.archiveTransactions = async (req, res) => {
+    try {
+        const archiveFilter = buildArchiveFilter(req.body);
+        if (!archiveFilter) {
+            return res.status(400).json({ msg: 'Provide ids, a month, or a date range to archive' });
+        }
+
+        const archivePeriod = normalizeText(req.body.archivePeriod || req.body.month || '', 20);
+        const updateResult = await Transaction.updateMany({
+            userId: req.user.id,
+            ...archiveFilter
+        }, {
+            $set: {
+                isArchived: true,
+                archivedAt: new Date(),
+                archivePeriod: archivePeriod || req.body.month || ''
+            }
+        });
+
+        return res.json({
+            msg: 'Transactions archived successfully',
+            archivedCount: updateResult.modifiedCount || updateResult.nModified || 0
+        });
+    } catch (err) {
+        console.error('Archive transactions error:', err.message);
+        return res.status(500).json({ msg: 'Server Error' });
+    }
+};
+
+exports.unarchiveTransactions = async (req, res) => {
+    try {
+        const archiveFilter = buildArchiveFilter(req.body);
+        if (!archiveFilter) {
+            return res.status(400).json({ msg: 'Provide ids, a month, or a date range to unarchive' });
+        }
+
+        const updateResult = await Transaction.updateMany({
+            userId: req.user.id,
+            isArchived: true,
+            ...archiveFilter
+        }, {
+            $set: {
+                isArchived: false,
+                archivedAt: null,
+                archivePeriod: ''
+            }
+        });
+
+        return res.json({
+            msg: 'Transactions restored successfully',
+            unarchivedCount: updateResult.modifiedCount || updateResult.nModified || 0
+        });
+    } catch (err) {
+        console.error('Unarchive transactions error:', err.message);
+        return res.status(500).json({ msg: 'Server Error' });
     }
 };
 
@@ -164,6 +277,20 @@ exports.deleteTransaction = async (req, res) => {
     }
 };
 
+exports.getArchivedTransactions = async (req, res) => {
+    try {
+        const archivedTransactions = await Transaction.find({
+            userId: req.user.id,
+            isArchived: true
+        }).sort({ date: -1 });
+
+        return res.json(archivedTransactions);
+    } catch (err) {
+        console.error('Get archived transactions error:', err.message);
+        return res.status(500).json({ msg: 'Server Error' });
+    }
+};
+
 // Budget Alert Algorithm (80% threshold, one alert per calendar month per category)
 async function checkBudgetAlert(userId, category) {
     try {
@@ -198,6 +325,7 @@ async function checkBudgetAlert(userId, category) {
             const user = await User.findById(userId);
             if (!user || !user.email) return;
             const remaining = budget.limit - totalSpent;
+            const currencySymbol = getCurrencySymbol(user);
             const displayCategory = budget.category || safeCategory;
             const subject = `Budget Alert: 80% Threshold Reached - ${displayCategory}`;
             const message = `
@@ -212,15 +340,15 @@ async function checkBudgetAlert(userId, category) {
                         </tr>
                         <tr>
                             <td style="padding:10px 14px;border:1px solid #e2e8f0;font-weight:600;">Budget Limit</td>
-                            <td style="padding:10px 14px;border:1px solid #e2e8f0;">Ksh ${budget.limit.toFixed(2)}</td>
+                            <td style="padding:10px 14px;border:1px solid #e2e8f0;">${currencySymbol} ${budget.limit.toFixed(2)}</td>
                         </tr>
                         <tr style="background:#f8fafc;">
                             <td style="padding:10px 14px;border:1px solid #e2e8f0;font-weight:600;">Amount Spent</td>
-                            <td style="padding:10px 14px;border:1px solid #e2e8f0;color:#dc2626;">Ksh ${totalSpent.toFixed(2)}</td>
+                            <td style="padding:10px 14px;border:1px solid #e2e8f0;color:#dc2626;">${currencySymbol} ${totalSpent.toFixed(2)}</td>
                         </tr>
                         <tr>
                             <td style="padding:10px 14px;border:1px solid #e2e8f0;font-weight:600;">Remaining</td>
-                            <td style="padding:10px 14px;border:1px solid #e2e8f0;color:${remaining < 0 ? '#dc2626' : '#16a34a'};">Ksh ${remaining.toFixed(2)}</td>
+                            <td style="padding:10px 14px;border:1px solid #e2e8f0;color:${remaining < 0 ? '#dc2626' : '#16a34a'};">${currencySymbol} ${remaining.toFixed(2)}</td>
                         </tr>
                     </table>
                     <p style="color:#64748b;font-size:14px;">Please review your spending to avoid exceeding your budget limit.</p>

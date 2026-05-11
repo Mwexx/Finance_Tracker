@@ -11,6 +11,23 @@ const MAX_EMAIL_LENGTH = 254;
 const MAX_PASSWORD_LENGTH = 128;
 const RESET_TOKEN_BYTES = 32;
 const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
+const APP_NOTICE_VERSION = '2026-05-update';
+
+const COUNTRY_CURRENCIES = {
+    kenya: { country: 'Kenya', currencyCode: 'KES', currencySymbol: 'Ksh' },
+    uganda: { country: 'Uganda', currencyCode: 'UGX', currencySymbol: 'USh' },
+    tanzania: { country: 'Tanzania', currencyCode: 'TZS', currencySymbol: 'TSh' },
+    rwanda: { country: 'Rwanda', currencyCode: 'RWF', currencySymbol: 'RF' },
+    'south africa': { country: 'South Africa', currencyCode: 'ZAR', currencySymbol: 'R' },
+    nigeria: { country: 'Nigeria', currencyCode: 'NGN', currencySymbol: '₦' },
+    ghana: { country: 'Ghana', currencyCode: 'GHS', currencySymbol: 'GH₵' },
+    'united states': { country: 'United States', currencyCode: 'USD', currencySymbol: '$' },
+    canada: { country: 'Canada', currencyCode: 'CAD', currencySymbol: 'C$' },
+    'united kingdom': { country: 'United Kingdom', currencyCode: 'GBP', currencySymbol: '£' },
+    india: { country: 'India', currencyCode: 'INR', currencySymbol: '₹' },
+    australia: { country: 'Australia', currencyCode: 'AUD', currencySymbol: 'A$' },
+    eurozone: { country: 'Eurozone', currencyCode: 'EUR', currencySymbol: '€' }
+};
 
 function normalizeText(value, maxLength) {
     if (value === undefined || value === null) return '';
@@ -23,6 +40,58 @@ function normalizeText(value, maxLength) {
 
 function isValidEmail(value) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function normalizePhoneNumber(value) {
+    const normalized = normalizeText(value, 24).replace(/[^\d+()\s-]/g, '');
+    return normalized.slice(0, 24);
+}
+
+function resolveCountryCurrency(countryInput) {
+    const normalizedCountry = normalizeText(countryInput, 60);
+    const lookupKey = normalizedCountry.toLowerCase();
+    const fallback = COUNTRY_CURRENCIES.kenya;
+    const match = COUNTRY_CURRENCIES[lookupKey] || fallback;
+
+    return {
+        country: normalizedCountry || fallback.country,
+        currencyCode: match.currencyCode,
+        currencySymbol: match.currencySymbol
+    };
+}
+
+function parseBoolean(value) {
+    return value === true || value === 'true' || value === 1 || value === '1';
+}
+
+function buildUserProfile(user) {
+    return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        country: user.country || 'Kenya',
+        phoneNumber: user.phoneNumber || '',
+        currencyCode: user.currencyCode || 'KES',
+        currencySymbol: user.currencySymbol || 'Ksh',
+        biometricEnabled: !!user.biometricEnabled,
+        appNoticeVersionSeen: user.appNoticeVersionSeen || '',
+        lastMonthlyReportMonth: user.lastMonthlyReportMonth || '',
+        lastMonthlyReportAt: user.lastMonthlyReportAt || null
+    };
+}
+
+function buildAuthResponse(user, token) {
+    const profile = buildUserProfile(user);
+    return {
+        token,
+        user: profile,
+        appNoticeVersion: APP_NOTICE_VERSION,
+        needsUpdateNotice: profile.appNoticeVersionSeen !== APP_NOTICE_VERSION
+    };
+}
+
+function isSupportedCountry(country) {
+    return !!COUNTRY_CURRENCIES[normalizeText(country, 60).toLowerCase()];
 }
 
 function getPasswordValidationError(password) {
@@ -65,12 +134,18 @@ exports.register = async (req, res) => {
     const name = normalizeText(req.body.name, MAX_NAME_LENGTH);
     const email = normalizeText(req.body.email, MAX_EMAIL_LENGTH).toLowerCase();
     const password = String(req.body.password || '');
+    const providedCountry = normalizeText(req.body.country, 60);
+    const phoneNumber = normalizePhoneNumber(req.body.phoneNumber);
+    const countryCurrency = resolveCountryCurrency(providedCountry);
 
     if (!name || !email || !password) {
         return res.status(400).json({ msg: 'Name, email, and password are required' });
     }
     if (!isValidEmail(email)) {
         return res.status(400).json({ msg: 'Please provide a valid email address' });
+    }
+    if (providedCountry && !isSupportedCountry(providedCountry)) {
+        return res.status(400).json({ msg: 'Please select a supported country' });
     }
     const passwordValidationError = getPasswordValidationError(password);
     if (passwordValidationError) {
@@ -89,7 +164,13 @@ exports.register = async (req, res) => {
         const user = await new User({
             name,
             email,
-            password: hashedPassword
+            password: hashedPassword,
+            country: countryCurrency.country,
+            phoneNumber,
+            currencyCode: countryCurrency.currencyCode,
+            currencySymbol: countryCurrency.currencySymbol,
+            biometricEnabled: false,
+            appNoticeVersionSeen: ''
         }).save();
 
         const payload = { user: { id: user.id } };
@@ -98,7 +179,7 @@ exports.register = async (req, res) => {
                 console.error('JWT sign error:', err);
                 return res.status(500).json({ msg: 'Token generation failed' });
             }
-            res.json({ token, user: { id: user.id, name: user.name, email: user.email } });
+            res.json(buildAuthResponse(user, token));
         });
 
     } catch (err) {
@@ -139,7 +220,7 @@ exports.login = async (req, res) => {
                 console.error('JWT sign error:', err);
                 return res.status(500).json({ msg: 'Token generation failed' });
             }
-            res.json({ token, user: { id: user.id, name: user.name, email: user.email } });
+            res.json(buildAuthResponse(user, token));
         });
 
     } catch (err) {
@@ -245,3 +326,74 @@ exports.resetPassword = async (req, res) => {
         return res.status(500).json({ msg: 'Server Error' });
     }
 };
+
+exports.getMe = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ msg: 'User not found' });
+        }
+
+        return res.json({
+            user: buildUserProfile(user),
+            appNoticeVersion: APP_NOTICE_VERSION,
+            needsUpdateNotice: (user.appNoticeVersionSeen || '') !== APP_NOTICE_VERSION
+        });
+    } catch (err) {
+        console.error('Get profile error:', err.message);
+        return res.status(500).json({ msg: 'Server Error' });
+    }
+};
+
+exports.updateMe = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ msg: 'User not found' });
+        }
+
+        if (req.body.name !== undefined) {
+            const nextName = normalizeText(req.body.name, MAX_NAME_LENGTH);
+            if (!nextName) {
+                return res.status(400).json({ msg: 'Name cannot be empty' });
+            }
+            user.name = nextName;
+        }
+
+        if (req.body.country !== undefined) {
+            const nextCountry = normalizeText(req.body.country, 60);
+            if (!isSupportedCountry(nextCountry)) {
+                return res.status(400).json({ msg: 'Please select a supported country' });
+            }
+            const countryCurrency = resolveCountryCurrency(nextCountry);
+            user.country = countryCurrency.country;
+            user.currencyCode = countryCurrency.currencyCode;
+            user.currencySymbol = countryCurrency.currencySymbol;
+        }
+
+        if (req.body.phoneNumber !== undefined) {
+            user.phoneNumber = normalizePhoneNumber(req.body.phoneNumber);
+        }
+
+        if (req.body.biometricEnabled !== undefined) {
+            user.biometricEnabled = parseBoolean(req.body.biometricEnabled);
+        }
+
+        if (req.body.appNoticeVersionSeen !== undefined) {
+            user.appNoticeVersionSeen = normalizeText(req.body.appNoticeVersionSeen, 40);
+        }
+
+        await user.save();
+
+        return res.json({
+            user: buildUserProfile(user),
+            appNoticeVersion: APP_NOTICE_VERSION,
+            needsUpdateNotice: (user.appNoticeVersionSeen || '') !== APP_NOTICE_VERSION
+        });
+    } catch (err) {
+        console.error('Update profile error:', err.message);
+        return res.status(500).json({ msg: 'Server Error' });
+    }
+};
+
+exports.APP_NOTICE_VERSION = APP_NOTICE_VERSION;

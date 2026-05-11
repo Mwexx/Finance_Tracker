@@ -21,6 +21,19 @@
                     <label for="name">Full Name</label>
                     <input type="text" id="name" placeholder="John Doe" autocomplete="name">
                 </div>
+                <div class="field-group" id="country-group" style="display:none;">
+                    <label for="country">Country</label>
+                    <select id="country" autocomplete="country-name"></select>
+                    <small class="field-hint">Your currency will update automatically.</small>
+                </div>
+                <div class="field-group" id="phone-group" style="display:none;">
+                    <label for="phone-number">Phone Number</label>
+                    <input type="tel" id="phone-number" placeholder="+254 700 000 000" autocomplete="tel">
+                </div>
+                <div class="field-group" id="currency-group" style="display:none;">
+                    <label for="currency-preview">Currency</label>
+                    <input type="text" id="currency-preview" readonly>
+                </div>
                 <div class="field-group">
                     <label for="email">Email Address</label>
                     <input type="email" id="email" placeholder="you@example.com" required autocomplete="email">

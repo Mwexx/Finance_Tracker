@@ -16,7 +16,4 @@ fs.readdirSync(__dirname)
   .forEach(file => {
     // Just requiring the file registers the model with mongoose
     require(path.join(__dirname, file));
-    console.log(`📦 Model loaded: ${file}`);
   });
-
-console.log('✅ All models registered with Mongoose');

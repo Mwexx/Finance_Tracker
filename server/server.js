@@ -25,14 +25,6 @@ const crypto = require('crypto');
 // ============================================
 dotenv.config({ path: path.join(__dirname, '.env') });
 
-// Debug: Log loaded environment variables (remove in production)
-console.log('\n[Config] Environment Configuration:');
-console.log('   PORT:', process.env.PORT || '5000 (default)');
-console.log('   MONGO_URI:', process.env.MONGO_URI ? 'Set' : 'MISSING');
-console.log('   JWT_SECRET:', process.env.JWT_SECRET ? 'Set' : 'MISSING');
-console.log('   NODE_ENV:', process.env.NODE_ENV || 'development');
-console.log('');
-
 // Validate critical environment variables
 if (!process.env.MONGO_URI) {
     console.error('WARNING: MONGO_URI is not set');
@@ -308,7 +300,6 @@ app.use('/api', apiLimiter);
 app.use('/api/auth', authLimiter);
 
 const frontendRoot = path.resolve(__dirname, '..');
-console.log(`Serving frontend files from: ${frontendRoot}`);
 
 function sendFrontendFile(res, fileName) {
     const filePath = path.join(frontendRoot, fileName);

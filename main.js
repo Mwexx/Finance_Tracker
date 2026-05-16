@@ -1121,20 +1121,28 @@ if (dashboardContainer) {
 
     async function loadDashboard() {
         try {
-            const results = await Promise.all([
-                apiRequest('/transactions'),
-                apiRequest('/budgets')
-            ]);
-            allTransactions = results[0];
-            allBudgets      = results[1];
+            const transactions = await apiRequest('/transactions');
+            allTransactions = Array.isArray(transactions) ? transactions : [];
 
             updateSummaryCards(allTransactions);
             updateTransactionTable(allTransactions);
             renderPieChart(allTransactions);
+        } catch (err) {
+            console.error('Failed to load transactions:', err.message);
+            if (/token|authoriz/i.test(err.message)) {
+                clearSession();
+                window.location.href = '/';
+                return;
+            }
+        }
+
+        try {
+            const budgets = await apiRequest('/budgets');
+            allBudgets = Array.isArray(budgets) ? budgets : [];
             renderBarChart(allTransactions, allBudgets);
             renderBudgetList(allBudgets, allTransactions);
         } catch (err) {
-            console.error('Failed to load dashboard:', err.message);
+            console.error('Failed to load budgets:', err.message);
             if (/token|authoriz/i.test(err.message)) {
                 clearSession();
                 window.location.href = '/';
@@ -1398,9 +1406,19 @@ if (dashboardContainer) {
         }
 
         try {
-            await apiRequest('/transactions', 'POST', { type, category, amount, date, description });
+            var createdTransaction = await apiRequest('/transactions', 'POST', { type, category, amount, date, description });
             e.target.reset();
             document.getElementById('t-date').value = new Date().toISOString().split('T')[0];
+            if (createdTransaction && createdTransaction._id) {
+                allTransactions = [createdTransaction].concat(allTransactions.filter(function(item) {
+                    return item && item._id !== createdTransaction._id;
+                }));
+                updateSummaryCards(allTransactions);
+                updateTransactionTable(allTransactions);
+                renderPieChart(allTransactions);
+                renderBarChart(allTransactions, allBudgets);
+                renderBudgetList(allBudgets, allTransactions);
+            }
             await loadDashboard();
         } catch (err) {
             alert('Failed to add transaction: ' + err.message);

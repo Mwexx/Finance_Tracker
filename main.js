@@ -1363,6 +1363,13 @@ if (dashboardContainer) {
         }).join('');
     }
 
+    function scrollToTransactionHistory() {
+        var historySection = document.querySelector('.history-section');
+        if (!historySection || typeof historySection.scrollIntoView !== 'function') return;
+
+        historySection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
     //Add Transaction 
 
     document.getElementById('transaction-tbody').addEventListener('click', function(e) {
@@ -1420,6 +1427,7 @@ if (dashboardContainer) {
                 renderBudgetList(allBudgets, allTransactions);
             }
             await loadDashboard();
+            scrollToTransactionHistory();
         } catch (err) {
             alert('Failed to add transaction: ' + err.message);
         } finally {

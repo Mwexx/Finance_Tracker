@@ -316,7 +316,7 @@ function sendFrontendFile(res, fileName) {
     return true;
 }
 
-app.get(['/index.html', '/dashboard.html', '/main.js', '/style.css'], (req, res) => {
+app.get(['/index.html', '/dashboard.html', '/setting.html', '/main.js', '/setting.js', '/style.css'], (req, res) => {
     const fileName = path.basename(req.path);
 
     if (!sendFrontendFile(res, fileName)) {
@@ -390,6 +390,15 @@ app.get('/dashboard', (req, res) => {
         res.status(404).json({ 
             error: 'Dashboard not found', 
             message: 'Please ensure dashboard.html exists in the project root' 
+        });
+    }
+});
+
+app.get(['/setting', '/setting.html'], (req, res) => {
+    if (!sendFrontendFile(res, 'setting.html')) {
+        res.status(404).json({
+            error: 'Settings not found',
+            message: 'Please ensure setting.html exists in the project root'
         });
     }
 });

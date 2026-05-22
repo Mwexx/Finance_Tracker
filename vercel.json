@@ -9,7 +9,9 @@
           "server/**",
           "index.html",
           "dashboard.html",
+            "setting.html",
           "main.js",
+            "setting.js",
           "style.css"
         ]
       }

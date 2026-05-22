@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Settings - Finance Tracker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="settings-page">
+    <nav class="navbar">
+        <div class="nav-brand">&#128176; Finance Tracker</div>
+        <div class="nav-user">
+            <span id="user-greeting">Loading...</span>
+            <a class="btn-secondary btn-auto nav-icon-btn" href="/dashboard" aria-label="Back to dashboard" title="Back to dashboard">&#8592;</a>
+            <button id="logout-btn" class="btn-danger-sm" type="button">Logout</button>
+        </div>
+    </nav>
+
+    <main class="main-container settings-main" id="settings-page">
+        <section class="card form-card settings-card">
+            <h3 class="card-title">Account Settings</h3>
+            <p class="card-copy">Update your profile, currency preferences, and biometric unlock from one place.</p>
+
+            <form id="account-form" novalidate>
+                <div class="field-group">
+                    <label for="account-name">Display Name</label>
+                    <input type="text" id="account-name" maxlength="80" autocomplete="name">
+                </div>
+                <div class="field-row">
+                    <div class="field-group">
+                        <label for="account-country">Country</label>
+                        <select id="account-country" autocomplete="country-name"></select>
+                    </div>
+                    <div class="field-group">
+                        <label for="account-phone">Phone Number</label>
+                        <input type="tel" id="account-phone" autocomplete="tel" placeholder="+254 700 000 000">
+                    </div>
+                </div>
+                <div class="field-group">
+                    <label for="account-currency">Currency</label>
+                    <input type="text" id="account-currency" readonly>
+                </div>
+                <div class="toggle-row">
+                    <label class="toggle-label" for="account-biometric">
+                        <input type="checkbox" id="account-biometric">
+                        Enable biometric unlock
+                    </label>
+                    <button type="button" id="biometric-setup-btn" class="btn-secondary btn-auto">Enroll Biometrics</button>
+                </div>
+                <p id="account-status" class="info-text"></p>
+                <button type="submit" id="account-save-btn" class="btn-primary">Save Account Settings</button>
+            </form>
+        </section>
+    </main>
+
+    <script src="main.js"></script>
+    <script src="setting.js"></script>
+</body>
+</html>

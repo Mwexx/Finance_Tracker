@@ -477,18 +477,11 @@ if (dashboardContainer) {
     const updateBanner = document.getElementById('update-banner');
     const updateBannerText = document.getElementById('update-banner-text');
     const dismissUpdateBtn = document.getElementById('dismiss-update-banner');
-    const settingsBtn = document.getElementById('settings-btn');
-    const settingsModal = document.getElementById('settings-modal');
-    const settingsModalCloseBtn = document.getElementById('settings-modal-close');
-    const accountForm = document.getElementById('account-form');
     const accountNameInput = document.getElementById('account-name');
     const accountCountryInput = document.getElementById('account-country');
     const accountPhoneInput = document.getElementById('account-phone');
     const accountCurrencyInput = document.getElementById('account-currency');
     const accountBiometricToggle = document.getElementById('account-biometric');
-    const accountSaveBtn = document.getElementById('account-save-btn');
-    const accountStatus = document.getElementById('account-status');
-    const biometricSetupBtn = document.getElementById('biometric-setup-btn');
     const biometricOverlay = document.getElementById('biometric-overlay');
     const biometricUnlockBtn = document.getElementById('biometric-unlock-btn');
     const biometricSkipBtn = document.getElementById('biometric-skip-btn');
@@ -526,28 +519,6 @@ if (dashboardContainer) {
         dismissUpdateBtn.addEventListener('click', dismissUpdateNotice);
     }
 
-    if (settingsBtn) {
-        settingsBtn.addEventListener('click', showAccountSettingsModal);
-    }
-
-    if (settingsModalCloseBtn) {
-        settingsModalCloseBtn.addEventListener('click', hideAccountSettingsModal);
-    }
-
-    if (settingsModal) {
-        settingsModal.addEventListener('click', function(e) {
-            if (e.target === settingsModal) {
-                hideAccountSettingsModal();
-            }
-        });
-    }
-
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape' && settingsModal && settingsModal.style.display !== 'none') {
-            hideAccountSettingsModal();
-        }
-    });
-
     if (biometricUnlockBtn) {
         biometricUnlockBtn.addEventListener('click', unlockWithBiometrics);
     }
@@ -559,22 +530,6 @@ if (dashboardContainer) {
             loadDashboard();
             queueMonthlyReportAutoCheck();
         });
-    }
-
-    if (accountCountryInput) {
-        populateCountrySelect(accountCountryInput, currentUserProfile.country || getActiveCurrencyInfo().country);
-        updateCurrencyPreview(accountCountryInput, accountCurrencyInput);
-        accountCountryInput.addEventListener('change', function() {
-            updateCurrencyPreview(accountCountryInput, accountCurrencyInput);
-        });
-    }
-
-    if (biometricSetupBtn) {
-        biometricSetupBtn.addEventListener('click', enrollBiometricFromProfile);
-    }
-
-    if (accountForm) {
-        accountForm.addEventListener('submit', saveAccountSettings);
     }
 
     if (reportForm) {
@@ -779,22 +734,6 @@ if (dashboardContainer) {
 
     function showBiometricOverlay() {
         if (biometricOverlay) biometricOverlay.style.display = 'flex';
-    }
-
-    function showAccountSettingsModal() {
-        applyProfileToUI(currentUserProfile);
-        if (accountStatus) {
-            showStatusText(accountStatus, '', '');
-        }
-        if (settingsModal) {
-            settingsModal.style.display = 'flex';
-        }
-    }
-
-    function hideAccountSettingsModal() {
-        if (settingsModal) {
-            settingsModal.style.display = 'none';
-        }
     }
 
     async function enrollBiometricCredential(profile) {

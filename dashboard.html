@@ -14,7 +14,7 @@
         <div class="nav-brand">&#128176; Finance Tracker</div>
         <div class="nav-user">
             <span id="user-greeting">Loading...</span>
-            <button id="settings-btn" type="button" class="btn-secondary btn-auto nav-icon-btn" aria-label="Open account settings" title="Account settings">&#9881;</button>
+            <a id="settings-btn" class="btn-secondary btn-auto nav-icon-btn" href="/setting.html" aria-label="Open account settings" title="Account settings">&#9881;</a>
             <button id="logout-btn" class="btn-danger-sm">Logout</button>
         </div>
     </nav>
@@ -137,38 +137,6 @@
         </section>
 
         <section class="support-row">
-            <div class="card form-card account-card">
-                <h3 class="card-title">Account Settings</h3>
-                <form id="account-form" novalidate>
-                    <div class="field-group">
-                        <label for="account-name">Display Name</label>
-                        <input type="text" id="account-name" maxlength="80" autocomplete="name">
-                    </div>
-                    <div class="field-row">
-                        <div class="field-group">
-                            <label for="account-country">Country</label>
-                            <select id="account-country" autocomplete="country-name"></select>
-                        </div>
-                        <div class="field-group">
-                            <label for="account-phone">Phone Number</label>
-                            <input type="tel" id="account-phone" autocomplete="tel" placeholder="+254 700 000 000">
-                        </div>
-                    </div>
-                    <div class="field-group">
-                        <label for="account-currency">Currency</label>
-                        <input type="text" id="account-currency" readonly>
-                    </div>
-                    <div class="toggle-row">
-                        <label class="toggle-label" for="account-biometric">
-                            <input type="checkbox" id="account-biometric">
-                            Enable biometric unlock
-                        </label>
-                        <button type="button" id="biometric-setup-btn" class="btn-secondary btn-auto">Enroll Biometrics</button>
-                    </div>
-                    <button type="submit" id="account-save-btn" class="btn-primary">Save Account Settings</button>
-                </form>
-            </div>
-
             <div class="card form-card report-card">
                 <h3 class="card-title">Monthly Report</h3>
                 <p class="card-copy">Generate a report for the previous month or let the app send it automatically when a new month starts.</p>
@@ -225,44 +193,6 @@
         </section>
 
     </main>
-
-    <div id="settings-modal" class="modal-overlay settings-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
-        <div class="modal-box settings-modal-box">
-            <div class="modal-header">
-                <h3 id="settings-modal-title">Account Settings</h3>
-                <button id="settings-modal-close" type="button" class="btn-ghost-icon" aria-label="Close account settings">&#10005;</button>
-            </div>
-            <form id="account-form" novalidate>
-                <div class="field-group">
-                    <label for="account-name">Display Name</label>
-                    <input type="text" id="account-name" maxlength="80" autocomplete="name">
-                </div>
-                <div class="field-row">
-                    <div class="field-group">
-                        <label for="account-country">Country</label>
-                        <select id="account-country" autocomplete="country-name"></select>
-                    </div>
-                    <div class="field-group">
-                        <label for="account-phone">Phone Number</label>
-                        <input type="tel" id="account-phone" autocomplete="tel" placeholder="+254 700 000 000">
-                    </div>
-                </div>
-                <div class="field-group">
-                    <label for="account-currency">Currency</label>
-                    <input type="text" id="account-currency" readonly>
-                </div>
-                <div class="toggle-row">
-                    <label class="toggle-label" for="account-biometric">
-                        <input type="checkbox" id="account-biometric">
-                        Enable biometric unlock
-                    </label>
-                    <button type="button" id="biometric-setup-btn" class="btn-secondary btn-auto">Enroll Biometrics</button>
-                </div>
-                <p id="account-status" class="info-text"></p>
-                <button type="submit" id="account-save-btn" class="btn-primary">Save Account Settings</button>
-            </form>
-        </div>
-    </div>
 
     <div id="biometric-overlay" class="modal-overlay biometric-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="biometric-title">
         <div class="modal-box biometric-box">

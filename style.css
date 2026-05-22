@@ -175,6 +175,10 @@ select:focus-visible {
 }
 .btn-danger-sm:hover { background: #dc2626; }
 
+.settings-page {
+    background: linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
+}
+
 .btn-edit-sm, .btn-delete-sm {
     padding: 0.3rem 0.65rem;
     border: none;
@@ -235,6 +239,7 @@ select:focus-visible {
     flex-direction: column;
     gap: 1.5rem;
 }
+.settings-main { max-width: 840px; }
 
 /* Card Base */
 .card {
@@ -296,6 +301,7 @@ select:focus-visible {
 .forms-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
 .form-card  { padding: 1.5rem; }
 .support-row { display: grid; grid-template-columns: 1fr; gap: 1.5rem; }
+.settings-card { padding: 1.5rem; }
 
 .notice-banner {
     display: flex;

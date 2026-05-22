@@ -34,6 +34,38 @@ const UserSchema = new mongoose.Schema({
     passwordChangedAt: {
         type: Date,
         default: null
+    },
+    country: {
+        type: String,
+        default: 'Kenya'
+    },
+    phoneNumber: {
+        type: String,
+        default: ''
+    },
+    currencyCode: {
+        type: String,
+        default: 'KES'
+    },
+    currencySymbol: {
+        type: String,
+        default: 'Ksh'
+    },
+    biometricEnabled: {
+        type: Boolean,
+        default: false
+    },
+    appNoticeVersionSeen: {
+        type: String,
+        default: ''
+    },
+    lastMonthlyReportMonth: {
+        type: String,
+        default: ''
+    },
+    lastMonthlyReportAt: {
+        type: Date,
+        default: null
     }
 }, { 
     timestamps: true,

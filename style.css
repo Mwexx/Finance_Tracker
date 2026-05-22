@@ -217,6 +217,14 @@ select:focus-visible {
 .nav-brand { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.3px; }
 .nav-user  { display: flex; align-items: center; gap: 1rem; }
 .nav-user span { font-size: 0.9rem; color: #cbd5e1; max-width: 18rem; overflow-wrap: anywhere; }
+.nav-icon-btn {
+    min-width: 2.25rem;
+    padding: 0.38rem 0.6rem;
+    border-color: rgba(255,255,255,0.25);
+    color: #fff;
+    background: rgba(255,255,255,0.04);
+}
+.nav-icon-btn:hover { background: rgba(255,255,255,0.12); }
 
 /* Dashboard Layout */
 .main-container {
@@ -287,7 +295,7 @@ select:focus-visible {
 /* Forms Row */
 .forms-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
 .form-card  { padding: 1.5rem; }
-.support-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+.support-row { display: grid; grid-template-columns: 1fr; gap: 1.5rem; }
 
 .notice-banner {
     display: flex;
@@ -478,6 +486,7 @@ tbody tr:hover { background: #f8fafc; }
     max-width: 500px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.3);
 }
+.settings-modal-box { max-width: 720px; }
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
 .modal-header h3 { font-size: 1.1rem; font-weight: 700; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.25rem; }
@@ -501,6 +510,7 @@ tbody tr:hover { background: #f8fafc; }
     .main-container { padding: 1rem; }
     .navbar { padding: 0.75rem 1rem; align-items: flex-start; }
     .nav-user { width: 100%; justify-content: space-between; flex-wrap: wrap; }
+    .nav-icon-btn { order: 1; }
     .notice-banner { flex-direction: column; align-items: flex-start; }
     .report-summary-grid { grid-template-columns: 1fr; }
     .action-row { flex-direction: column; align-items: stretch; }

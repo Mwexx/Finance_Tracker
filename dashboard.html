@@ -14,6 +14,7 @@
         <div class="nav-brand">&#128176; Finance Tracker</div>
         <div class="nav-user">
             <span id="user-greeting">Loading...</span>
+            <button id="settings-btn" type="button" class="btn-secondary btn-auto nav-icon-btn" aria-label="Open account settings" title="Account settings">&#9881;</button>
             <button id="logout-btn" class="btn-danger-sm">Logout</button>
         </div>
     </nav>
@@ -203,38 +204,7 @@
                         <input type="date" id="archive-end">
                     </div>
                 </div>
-                <div class="action-row">
-                    <button type="button" id="archive-month-btn" class="btn-primary btn-auto">Archive Month</button>
-                    <button type="button" id="archive-range-btn" class="btn-secondary btn-auto">Archive Range</button>
-                    <button type="button" id="restore-month-btn" class="btn-secondary btn-auto">Restore Month</button>
-                    <button type="button" id="restore-range-btn" class="btn-ghost btn-auto">Restore Range</button>
-                    <button type="button" id="refresh-archived-btn" class="btn-ghost btn-auto">Refresh Archived</button>
-                </div>
-            </div>
-            <p id="archive-status" class="info-text"></p>
-            <div id="archived-list" class="archived-list">
-                <p class="empty-msg">No archived transactions yet.</p>
-            </div>
-        </section>
-
-        <!-- Transaction History -->
-        <section class="card history-section">
-            <div class="history-header">
-                <h3 class="card-title">Transaction History</h3>
-                <div class="filter-bar">
-                    <input type="text" id="filter-category" placeholder="Search category...">
-                    <select id="filter-type">
-                        <option value="">All Types</option>
-                        <option value="income">Income</option>
-                        <option value="expense">Expense</option>
-                    </select>
-                    <input type="date" id="filter-start" title="From date">
-                    <span class="filter-sep">to</span>
-                    <input type="date" id="filter-end" title="To date">
-                    <button id="filter-apply-btn" class="btn-secondary">Filter</button>
-                    <button id="filter-reset-btn" class="btn-ghost">Reset</button>
-                </div>
-            </div>
+                <section class="support-row">
             <div class="table-wrapper">
                 <table id="transaction-table">
                     <thead>
@@ -255,6 +225,44 @@
         </section>
 
     </main>
+
+    <div id="settings-modal" class="modal-overlay settings-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
+        <div class="modal-box settings-modal-box">
+            <div class="modal-header">
+                <h3 id="settings-modal-title">Account Settings</h3>
+                <button id="settings-modal-close" type="button" class="btn-ghost-icon" aria-label="Close account settings">&#10005;</button>
+            </div>
+            <form id="account-form" novalidate>
+                <div class="field-group">
+                    <label for="account-name">Display Name</label>
+                    <input type="text" id="account-name" maxlength="80" autocomplete="name">
+                </div>
+                <div class="field-row">
+                    <div class="field-group">
+                        <label for="account-country">Country</label>
+                        <select id="account-country" autocomplete="country-name"></select>
+                    </div>
+                    <div class="field-group">
+                        <label for="account-phone">Phone Number</label>
+                        <input type="tel" id="account-phone" autocomplete="tel" placeholder="+254 700 000 000">
+                    </div>
+                </div>
+                <div class="field-group">
+                    <label for="account-currency">Currency</label>
+                    <input type="text" id="account-currency" readonly>
+                </div>
+                <div class="toggle-row">
+                    <label class="toggle-label" for="account-biometric">
+                        <input type="checkbox" id="account-biometric">
+                        Enable biometric unlock
+                    </label>
+                    <button type="button" id="biometric-setup-btn" class="btn-secondary btn-auto">Enroll Biometrics</button>
+                </div>
+                <p id="account-status" class="info-text"></p>
+                <button type="submit" id="account-save-btn" class="btn-primary">Save Account Settings</button>
+            </form>
+        </div>
+    </div>
 
     <div id="biometric-overlay" class="modal-overlay biometric-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="biometric-title">
         <div class="modal-box biometric-box">

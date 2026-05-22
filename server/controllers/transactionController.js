@@ -30,7 +30,7 @@ function getMonthKeyFromDate(date) {
 function buildArchiveFilter(body) {
     const ids = Array.isArray(body.ids) ? body.ids.filter((value) => mongoose.Types.ObjectId.isValid(value)) : [];
     if (ids.length) {
-        return { _id: { $in: ids } };
+        return { _id: mongoose.trusted({ $in: ids }) };
     }
 
     const startDate = parseDateOrNull(body.startDate);
@@ -40,10 +40,10 @@ function buildArchiveFilter(body) {
     if (month && /^\d{4}-\d{2}$/.test(month)) {
         const [year, monthNumber] = month.split('-').map((part) => Number(part));
         return {
-            date: {
+            date: mongoose.trusted({
                 $gte: new Date(year, monthNumber - 1, 1),
                 $lte: new Date(year, monthNumber, 0, 23, 59, 59, 999)
-            }
+            })
         };
     }
 
@@ -54,7 +54,7 @@ function buildArchiveFilter(body) {
             endDate.setHours(23, 59, 59, 999);
             range.$lte = endDate;
         }
-        return { date: range };
+        return { date: mongoose.trusted(range) };
     }
 
     return null;
@@ -120,7 +120,7 @@ exports.getTransactions = async (req, res) => {
         if (archivedOnly) {
             filter.isArchived = true;
         } else if (!includeArchived) {
-            filter.isArchived = { $ne: true };
+            filter.isArchived = mongoose.trusted({ $ne: true });
         }
 
         if (req.query.type && ['income', 'expense'].includes(req.query.type)) {
@@ -307,6 +307,7 @@ async function checkBudgetAlert(userId, category) {
             userId,
             type: 'expense',
             category: categoryMatcher,
+            isArchived: mongoose.trusted({ $ne: true }),
             date: mongoose.trusted({ $gte: monthStart, $lte: monthEnd })
         });
         const totalSpent = transactions.reduce((sum, t) => sum + t.amount, 0);

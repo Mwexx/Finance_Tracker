@@ -229,7 +229,7 @@ app.use(helmet({
 app.use(cors({
     origin: function(origin, callback) {
         if (!origin) return callback(null, true);
-        if (allowedOrigins.has(origin) || /\.vercel\.app$/i.test(origin)) {
+        if (allowedOrigins.has(origin) || /\.vercel\.app$/i.test(origin) || /\.github\.io$/i.test(origin)) {
             return callback(null, true);
         }
         logRequestEvent('warn', 'security', {

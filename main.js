@@ -1,6 +1,9 @@
 // Personal Finance Tracker - Frontend JavaScrip
 
-const API_URL = '/api';
+const DEFAULT_LIVE_API_URL = 'https://finance-tracker-tau-amber.vercel.app/api';
+const IS_GITHUB_PAGES = /\.github\.io$/i.test(window.location.hostname);
+const APP_BASE_PATH = IS_GITHUB_PAGES ? '/Finance_Tracker' : '';
+const API_URL = window.__FINANCE_TRACKER_API_URL__ || (IS_GITHUB_PAGES ? DEFAULT_LIVE_API_URL : '/api');
 const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
 const APP_NOTICE_VERSION = '2026-05-update';
 const TEXT_LIMITS = {
@@ -77,6 +80,34 @@ function clearSession() {
     } catch {
         // Ignore storage failures and continue with logout flow.
     }
+}
+
+function appUrl(path) {
+    if (!IS_GITHUB_PAGES) {
+        return path;
+    }
+
+    if (!path || path === '/') {
+        return APP_BASE_PATH + '/index.html';
+    }
+
+    if (path === '/dashboard') {
+        return APP_BASE_PATH + '/dashboard.html';
+    }
+
+    if (path === '/setting.html') {
+        return APP_BASE_PATH + '/setting.html';
+    }
+
+    if (path.charAt(0) === '/') {
+        return APP_BASE_PATH + path;
+    }
+
+    return APP_BASE_PATH + '/' + path;
+}
+
+function goToApp(path) {
+    window.location.href = appUrl(path);
 }
 
 function formatKsh(amount) {
@@ -190,7 +221,7 @@ if (authForm) {
     var resetToken = normalizeText(authUrl.searchParams.get('token') || '', 200);
 
     // Already logged in → go to dashboard, except when actively resetting password.
-    if (getToken() && pageMode !== 'reset' && pageMode !== 'forgot') window.location.href = '/dashboard';
+    if (getToken() && pageMode !== 'reset' && pageMode !== 'forgot') goToApp('/dashboard');
 
     let isLogin = true;
     const toggleLink    = document.getElementById('toggle-form');
@@ -450,7 +481,7 @@ if (authForm) {
             const result = await apiRequest(endpoint, 'POST', body, { skipAuth: true });
             localStorage.setItem('token', result.token);
             setUser(result.user);
-            window.location.href = '/dashboard';
+            goToApp('/dashboard');
         } catch (err) {
             errorEl.textContent = err.message || 'Authentication failed. Please try again.';
         } finally {
@@ -465,7 +496,7 @@ const dashboardContainer = document.getElementById('dashboard-container');
 if (dashboardContainer) {
 
     // Not authenticated → redirect
-    if (!getToken()) { window.location.href = '/'; }
+    if (!getToken()) { goToApp('/'); }
 
     // State
     var allTransactions  = [];
@@ -513,7 +544,7 @@ if (dashboardContainer) {
     // Logout
     document.getElementById('logout-btn').addEventListener('click', function() {
         clearSession();
-        window.location.href = '/';
+        goToApp('/');
     });
 
     if (dismissUpdateBtn) {
@@ -1162,7 +1193,7 @@ if (dashboardContainer) {
             console.error('Failed to initialize dashboard:', err.message);
             if (/token|authoriz/i.test(err.message)) {
                 clearSession();
-                window.location.href = '/';
+                goToApp('/');
             }
         }
     }
@@ -1179,7 +1210,7 @@ if (dashboardContainer) {
             console.error('Failed to load transactions:', err.message);
             if (/token|authoriz/i.test(err.message)) {
                 clearSession();
-                window.location.href = '/';
+                goToApp('/');
                 return;
             }
         }
@@ -1193,7 +1224,7 @@ if (dashboardContainer) {
             console.error('Failed to load budgets:', err.message);
             if (/token|authoriz/i.test(err.message)) {
                 clearSession();
-                window.location.href = '/';
+                goToApp('/');
             }
         }
     }

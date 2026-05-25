@@ -1,7 +1,7 @@
 const settingsPage = document.getElementById('settings-page');
 if (settingsPage) {
     if (!getToken()) {
-        window.location.href = '/';
+        goToApp('/');
     }
 
     let currentUserProfile = getUser() || {};
@@ -118,7 +118,7 @@ if (settingsPage) {
         } catch (error) {
             if (/token|authoriz/i.test(error.message)) {
                 clearSession();
-                window.location.href = '/';
+                goToApp('/');
                 return;
             }
             setStatusText(error.message || 'Could not load account settings.', 'error');
@@ -177,7 +177,7 @@ if (settingsPage) {
     if (logoutBtn) {
         logoutBtn.addEventListener('click', function() {
             clearSession();
-            window.location.href = '/';
+            goToApp('/');
         });
     }
 

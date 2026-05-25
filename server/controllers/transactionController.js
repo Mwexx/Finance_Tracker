@@ -27,6 +27,10 @@ function getMonthKeyFromDate(date) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
+function formatMonthLabel(monthKey) {
+    return new Date(`${monthKey}-01T00:00:00`).toLocaleString('default', { month: 'long', year: 'numeric' });
+}
+
 function buildArchiveFilter(body) {
     const ids = Array.isArray(body.ids) ? body.ids.filter((value) => mongoose.Types.ObjectId.isValid(value)) : [];
     if (ids.length) {
@@ -154,6 +158,35 @@ exports.getTransactions = async (req, res) => {
         res.json(transactions);
     } catch (err) {
         res.status(500).json({ msg: 'Server Error' });
+    }
+};
+
+exports.getTransactionMonths = async (req, res) => {
+    try {
+        const userId = mongoose.Types.ObjectId.isValid(req.user.id)
+            ? new mongoose.Types.ObjectId(req.user.id)
+            : req.user.id;
+
+        const months = await Transaction.aggregate([
+            { $match: { userId } },
+            {
+                $project: {
+                    monthKey: {
+                        $dateToString: { format: '%Y-%m', date: '$date' }
+                    }
+                }
+            },
+            { $group: { _id: '$monthKey' } },
+            { $sort: { _id: -1 } }
+        ]);
+
+        return res.json(months.map((entry) => ({
+            value: entry._id,
+            label: formatMonthLabel(entry._id)
+        })));
+    } catch (err) {
+        console.error('Transaction months error:', err.message);
+        return res.status(500).json({ msg: 'Server Error' });
     }
 };
 

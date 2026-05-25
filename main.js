@@ -486,6 +486,7 @@ if (dashboardContainer) {
     const biometricUnlockBtn = document.getElementById('biometric-unlock-btn');
     const biometricSkipBtn = document.getElementById('biometric-skip-btn');
     const reportForm = document.getElementById('report-form');
+    const reportMonthSelect = document.getElementById('report-month');
     const reportGenerateBtn = document.getElementById('report-generate-btn');
     const reportExportCsvBtn = document.getElementById('report-export-csv-btn');
     const reportExportPdfBtn = document.getElementById('report-export-pdf-btn');
@@ -611,6 +612,69 @@ if (dashboardContainer) {
         var now = new Date();
         now.setMonth(now.getMonth() - 1);
         return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    }
+
+    function getRelativeMonthKey(monthOffset) {
+        var referenceDate = new Date();
+        referenceDate.setMonth(referenceDate.getMonth() + monthOffset);
+        return referenceDate.getFullYear() + '-' + String(referenceDate.getMonth() + 1).padStart(2, '0');
+    }
+
+    function getReportMonthOptions(count) {
+        var options = [];
+        var monthCount = count || 12;
+
+        for (var offset = -1; offset >= -monthCount; offset -= 1) {
+            var monthKey = getRelativeMonthKey(offset);
+            var monthDate = new Date(monthKey + '-01T00:00:00');
+            options.push({
+                value: monthKey,
+                label: monthDate.toLocaleString('default', { month: 'long', year: 'numeric' })
+            });
+        }
+
+        return options;
+    }
+
+    function populateReportMonthSelect(monthOptions) {
+        if (!reportMonthSelect) return;
+
+        var options = Array.isArray(monthOptions) && monthOptions.length ? monthOptions : getReportMonthOptions(12);
+        var previouslySelected = reportMonthSelect.value || getDefaultArchiveMonth();
+
+        reportMonthSelect.innerHTML = options.map(function(option) {
+            return '<option value="' + escapeHtml(option.value) + '">' + escapeHtml(option.label) + '</option>';
+        }).join('');
+
+        reportMonthSelect.value = options.some(function(option) { return option.value === previouslySelected; })
+            ? previouslySelected
+            : (options[0] ? options[0].value : previouslySelected);
+    }
+
+    function getSelectedReportMonth() {
+        return reportMonthSelect && reportMonthSelect.value ? reportMonthSelect.value : getDefaultArchiveMonth();
+    }
+
+    function getSelectedReportMonthLabel() {
+        if (!reportMonthSelect) return getSelectedReportMonth();
+        var selectedOption = reportMonthSelect.options[reportMonthSelect.selectedIndex];
+        return selectedOption ? selectedOption.textContent : getSelectedReportMonth();
+    }
+
+    if (reportMonthSelect) {
+        populateReportMonthSelect();
+    }
+
+    async function loadReportMonths() {
+        if (!reportMonthSelect) return;
+
+        try {
+            var monthOptions = await apiRequest('/transactions/months');
+            populateReportMonthSelect(monthOptions);
+        } catch (err) {
+            console.error('Failed to load report months:', err.message);
+            populateReportMonthSelect();
+        }
     }
 
     async function fetchBinary(endpoint) {
@@ -930,10 +994,11 @@ if (dashboardContainer) {
         e.preventDefault();
         var btn = reportGenerateBtn || e.target.querySelector('button[type="submit"]');
         setButtonState(btn, true, 'Generate Monthly Report', 'Generating...');
-        showStatusText(reportStatus, 'Generating monthly report...', '');
+        showStatusText(reportStatus, 'Generating monthly report for ' + getSelectedReportMonthLabel() + '...', '');
 
         try {
-            var result = await apiRequest('/reports/monthly/send', 'POST', {});
+            var monthKey = getSelectedReportMonth();
+            var result = await apiRequest('/reports/monthly/send', 'POST', { month: monthKey });
             if (result && result.report) {
                 renderReportSummary(result.report);
             }
@@ -947,13 +1012,14 @@ if (dashboardContainer) {
 
     async function downloadMonthlyReport(format) {
         try {
-            var endpoint = '/reports/monthly/export?format=' + encodeURIComponent(format || 'csv');
+            var selectedMonthKey = getSelectedReportMonth();
+            var endpoint = '/reports/monthly/export?format=' + encodeURIComponent(format || 'csv') + '&month=' + encodeURIComponent(selectedMonthKey);
             var response = await fetchBinary(endpoint);
             var blob = await response.blob();
-            var monthKey = response.headers.get('content-disposition') || 'finance-report';
+            var contentDisposition = response.headers.get('content-disposition') || 'finance-report';
             var fileName = format === 'pdf' ? 'finance-report.pdf' : 'finance-report.csv';
-            if (/finance-report-[\d-]+/i.test(monthKey)) {
-                var match = monthKey.match(/finance-report-[\d-]+/i);
+            if (/finance-report-[\d-]+/i.test(contentDisposition)) {
+                var match = contentDisposition.match(/finance-report-[\d-]+/i);
                 if (match) {
                     fileName = match[0] + (format === 'pdf' ? '.pdf' : '.csv');
                 }
@@ -1089,6 +1155,7 @@ if (dashboardContainer) {
 
             hideBiometricOverlay();
             await loadDashboard();
+            await loadReportMonths();
             await loadArchivedTransactions();
             queueMonthlyReportAutoCheck();
         } catch (err) {

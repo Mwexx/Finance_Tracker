@@ -139,8 +139,13 @@
         <section class="support-row">
             <div class="card form-card report-card">
                 <h3 class="card-title">Monthly Report</h3>
-                <p class="card-copy">Generate a report for the previous month or let the app send it automatically when a new month starts.</p>
+                <p class="card-copy">Generate a report for any previous month or let the app send it automatically when a new month starts.</p>
                 <form id="report-form" novalidate>
+                    <div class="field-group">
+                        <label for="report-month">Report Month</label>
+                        <select id="report-month" required></select>
+                        <span class="field-hint">Choose from the months found in your transaction history.</span>
+                    </div>
                     <button type="submit" id="report-generate-btn" class="btn-primary">Generate Monthly Report</button>
                 </form>
                 <div class="action-row report-action-row">

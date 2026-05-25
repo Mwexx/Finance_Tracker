@@ -4,6 +4,7 @@ const auth = require('../middleware/authMiddleware');
 const {
     addTransaction,
     getTransactions,
+    getTransactionMonths,
     updateTransaction,
     deleteTransaction,
     archiveTransactions,
@@ -13,6 +14,7 @@ const {
 
 router.use(auth);
 router.post('/', addTransaction);
+router.get('/months', getTransactionMonths);
 router.get('/', getTransactions);
 router.get('/archived', getArchivedTransactions);
 router.post('/archive', archiveTransactions);

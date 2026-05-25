@@ -1,6 +1,6 @@
 // Personal Finance Tracker - Frontend JavaScrip
 
-const DEFAULT_LIVE_API_URL = 'https://finance-tracker-api.vercel.app/api';
+const DEFAULT_LIVE_API_URL = 'https://finance-tracker-nine-bice.vercel.app/api';
 const IS_GITHUB_PAGES = /\.github\.io$/i.test(window.location.hostname);
 const APP_BASE_PATH = IS_GITHUB_PAGES ? '/Finance_Tracker' : '';
 const API_URL = window.__FINANCE_TRACKER_API_URL__ || (IS_GITHUB_PAGES ? DEFAULT_LIVE_API_URL : '/api');

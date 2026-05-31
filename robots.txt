@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+Sitemap: https://finance-tracker-nine-bice.vercel.app/sitemap.xml
+Host: https://finance-tracker-nine-bice.vercel.app

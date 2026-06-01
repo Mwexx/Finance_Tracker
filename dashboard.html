@@ -34,6 +34,7 @@
         <div class="nav-brand">&#128176; Finance Tracker</div>
         <div class="nav-user">
             <span id="user-greeting">Loading...</span>
+            <button id="theme-toggle-btn" class="btn-secondary btn-auto nav-icon-btn" type="button" aria-label="Toggle theme" title="Toggle theme">&#9728;</button>
             <a id="settings-btn" class="btn-secondary btn-auto nav-icon-btn" href="setting.html" aria-label="Open account settings" title="Account settings">&#9881;</a>
             <button id="logout-btn" class="btn-danger-sm">Logout</button>
         </div>
@@ -218,17 +219,6 @@
         </section>
 
     </main>
-
-    <div id="biometric-overlay" class="modal-overlay biometric-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="biometric-title">
-        <div class="modal-box biometric-box">
-            <h3 id="biometric-title">Unlock with Biometrics</h3>
-            <p class="auth-subtitle">Use your device biometric prompt to open the app. If your browser does not support it, continue with the session.</p>
-            <div class="modal-actions biometric-actions">
-                <button id="biometric-unlock-btn" type="button" class="btn-primary btn-auto">Unlock</button>
-                <button id="biometric-skip-btn" type="button" class="btn-secondary btn-auto">Continue Without Biometrics</button>
-            </div>
-        </div>
-    </div>
 
     <!-- Edit Transaction Modal -->
     <div id="edit-modal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="modal-title">

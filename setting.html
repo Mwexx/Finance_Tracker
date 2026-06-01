@@ -4,16 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Account Settings - Finance Tracker</title>
-    <meta name="description" content="Account settings — update profile, currency preferences, and biometric unlock for Finance Tracker.">
+    <meta name="description" content="Account settings — update profile, currency preferences, and pass key unlock for Finance Tracker.">
     <link rel="canonical" href="https://finance-tracker-nine-bice.vercel.app/setting.html">
     <meta property="og:type" content="website">
     <meta property="og:title" content="Account Settings - Finance Tracker">
-    <meta property="og:description" content="Update your profile, currency preferences, and biometric unlock.">
+    <meta property="og:description" content="Update your profile, currency preferences, and pass key unlock.">
     <meta property="og:url" content="https://finance-tracker-nine-bice.vercel.app/setting.html">
     <meta property="og:image" content="https://finance-tracker-nine-bice.vercel.app/og-image.png">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Account Settings - Finance Tracker">
-    <meta name="twitter:description" content="Update your profile, currency preferences, and biometric unlock.">
+    <meta name="twitter:description" content="Update your profile, currency preferences, and pass key unlock.">
     <meta name="twitter:image" content="https://finance-tracker-nine-bice.vercel.app/og-image.png">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -22,6 +22,7 @@
         <div class="nav-brand">&#128176; Finance Tracker</div>
         <div class="nav-user">
             <span id="user-greeting">Loading...</span>
+            <button id="theme-toggle-btn" class="btn-secondary btn-auto nav-icon-btn" type="button" aria-label="Toggle theme" title="Toggle theme">&#9728;</button>
             <a class="btn-secondary btn-auto nav-icon-btn" href="dashboard.html" aria-label="Back to dashboard" title="Back to dashboard">&#8592;</a>
             <button id="logout-btn" class="btn-danger-sm" type="button">Logout</button>
         </div>
@@ -30,7 +31,7 @@
     <main class="main-container settings-main" id="settings-page">
         <section class="card form-card settings-card">
             <h3 class="card-title">Account Settings</h3>
-            <p class="card-copy">Update your profile, currency preferences, and biometric unlock from one place.</p>
+            <p class="card-copy">Update your profile, currency preferences, and pass key unlock from one place.</p>
 
             <form id="account-form" novalidate>
                 <div class="field-group">
@@ -54,9 +55,9 @@
                 <div class="toggle-row">
                     <label class="toggle-label" for="account-biometric">
                         <input type="checkbox" id="account-biometric">
-                        Enable biometric unlock
+                        Enable pass key unlock
                     </label>
-                    <button type="button" id="biometric-setup-btn" class="btn-secondary btn-auto">Enroll Biometrics</button>
+                    <button type="button" id="biometric-setup-btn" class="btn-secondary btn-auto">Set Up Pass Key</button>
                 </div>
                 <p id="account-status" class="info-text"></p>
                 <button type="submit" id="account-save-btn" class="btn-primary">Save Account Settings</button>

@@ -24,6 +24,7 @@
             <div class="brand-logo">&#128176;</div>
             <h1>Personal Finance Tracker</h1>
             <p>Track spending. Set budgets. Get alerts.</p>
+            <button type="button" id="theme-toggle-btn" class="btn-secondary btn-auto theme-toggle-btn">Light theme</button>
         </div>
         <div class="auth-card">
             <h2 id="form-title">Welcome Back</h2>
@@ -52,8 +53,15 @@
                 </div>
                 <div class="field-group">
                     <label for="password">Password</label>
-                    <input type="password" id="password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" required autocomplete="current-password">
+                    <div class="password-field">
+                        <input type="password" id="password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" required autocomplete="current-password">
+                        <button type="button" class="password-toggle-btn" data-password-target="password" aria-label="Show password" title="Show password">&#128065;</button>
+                    </div>
                 </div>
+                <div class="auth-link-row auth-link-row-spread">
+                    <button type="button" id="passkey-btn" class="btn-ghost btn-auto">Use pass key instead</button>
+                </div>
+                <p id="passkey-message" class="info-text"></p>
                 <div class="auth-link-row">
                     <a id="forgot-link" href="?mode=forgot">Forgot password?</a>
                 </div>
@@ -85,11 +93,17 @@
                 <form id="reset-form" novalidate>
                     <div class="field-group">
                         <label for="reset-password">New Password</label>
-                        <input type="password" id="reset-password" placeholder="At least 8 characters" required autocomplete="new-password">
+                        <div class="password-field">
+                            <input type="password" id="reset-password" placeholder="At least 8 characters" required autocomplete="new-password">
+                            <button type="button" class="password-toggle-btn" data-password-target="reset-password" aria-label="Show password" title="Show password">&#128065;</button>
+                        </div>
                     </div>
                     <div class="field-group">
                         <label for="reset-confirm-password">Confirm New Password</label>
-                        <input type="password" id="reset-confirm-password" placeholder="Repeat your password" required autocomplete="new-password">
+                        <div class="password-field">
+                            <input type="password" id="reset-confirm-password" placeholder="Repeat your password" required autocomplete="new-password">
+                            <button type="button" class="password-toggle-btn" data-password-target="reset-confirm-password" aria-label="Show password" title="Show password">&#128065;</button>
+                        </div>
                     </div>
                     <p id="reset-message" class="info-text"></p>
                     <button type="submit" id="reset-submit-btn" class="btn-primary">Reset Password</button>

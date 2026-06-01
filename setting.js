@@ -57,7 +57,7 @@ if (settingsPage) {
     async function enrollBiometricCredential(profile) {
         profile = profile || currentUserProfile;
         if (!supportsBiometricUnlock()) {
-            throw new Error('Biometric unlock is not supported in this browser.');
+            throw new Error('Pass key unlock is not supported in this browser.');
         }
 
         const userId = window.crypto.getRandomValues(new Uint8Array(32));
@@ -83,7 +83,7 @@ if (settingsPage) {
         });
 
         if (!credential || !credential.id) {
-            throw new Error('Biometric enrollment was not completed.');
+            throw new Error('Pass key setup was not completed.');
         }
 
         localStorage.setItem(biometricCredentialStorageKey(), credential.id);

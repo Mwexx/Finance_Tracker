@@ -6,6 +6,7 @@ const APP_BASE_PATH = IS_GITHUB_PAGES ? '/Finance_Tracker' : '';
 const API_URL = window.__FINANCE_TRACKER_API_URL__ || (IS_GITHUB_PAGES ? DEFAULT_LIVE_API_URL : '/api');
 const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
 const APP_NOTICE_VERSION = '2026-05-update';
+const THEME_STORAGE_KEY = 'finance-tracker-theme';
 const TEXT_LIMITS = {
     name: 80,
     email: 254,
@@ -161,6 +162,138 @@ function setButtonState(button, busy, idleText, busyText) {
     button.textContent = busy ? busyText : idleText;
 }
 
+function supportsBiometricUnlock() {
+    return typeof window.PublicKeyCredential !== 'undefined' && !!navigator.credentials;
+}
+
+function biometricCredentialStorageKey() {
+    return 'finance-tracker-biometric-credential-id';
+}
+
+function bufferToBase64Url(buffer) {
+    var bytes = new Uint8Array(buffer);
+    var binary = '';
+    for (var i = 0; i < bytes.byteLength; i += 1) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function base64UrlToBuffer(value) {
+    var normalized = String(value || '').replace(/-/g, '+').replace(/_/g, '/');
+    while (normalized.length % 4) normalized += '=';
+    var binary = atob(normalized);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes.buffer;
+}
+
+function getStoredTheme() {
+    try {
+        return localStorage.getItem(THEME_STORAGE_KEY);
+    } catch {
+        return null;
+    }
+}
+
+function getDefaultTheme() {
+    return document.body && document.body.classList.contains('auth-page') ? 'dark' : 'light';
+}
+
+function syncThemeToggleButton(theme) {
+    var toggleButton = document.getElementById('theme-toggle-btn');
+    if (!toggleButton) return;
+
+    var isDark = theme === 'dark';
+    toggleButton.textContent = isDark ? '☀' : '☾';
+    toggleButton.title = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+    toggleButton.setAttribute('aria-label', toggleButton.title);
+    toggleButton.setAttribute('aria-pressed', isDark ? 'true' : 'false');
+}
+
+function applyTheme(theme, persist) {
+    var resolvedTheme = theme === 'dark' ? 'dark' : 'light';
+    if (document.body) {
+        document.body.dataset.theme = resolvedTheme;
+    }
+    if (document.documentElement) {
+        document.documentElement.style.colorScheme = resolvedTheme;
+    }
+    syncThemeToggleButton(resolvedTheme);
+
+    if (persist) {
+        try {
+            localStorage.setItem(THEME_STORAGE_KEY, resolvedTheme);
+        } catch {
+            // Ignore storage failures and continue with the in-memory theme.
+        }
+    }
+}
+
+function initializeTheme() {
+    var storedTheme = getStoredTheme();
+    var theme = storedTheme === 'dark' || storedTheme === 'light' ? storedTheme : getDefaultTheme();
+
+    applyTheme(theme, storedTheme === 'dark' || storedTheme === 'light');
+
+    var toggleButton = document.getElementById('theme-toggle-btn');
+    if (toggleButton) {
+        toggleButton.addEventListener('click', function() {
+            applyTheme(document.body && document.body.dataset.theme === 'dark' ? 'light' : 'dark', true);
+        });
+    }
+}
+
+function bindPasswordToggle(toggleButton) {
+    if (!toggleButton) return;
+
+    var targetId = toggleButton.getAttribute('data-password-target');
+    var targetInput = targetId ? document.getElementById(targetId) : null;
+    if (!targetInput) return;
+
+    function syncToggleState() {
+        var isHidden = targetInput.type === 'password';
+        toggleButton.textContent = isHidden ? '👁' : '🙈';
+        toggleButton.setAttribute('aria-label', isHidden ? 'Show password' : 'Hide password');
+        toggleButton.setAttribute('title', isHidden ? 'Show password' : 'Hide password');
+        toggleButton.setAttribute('aria-pressed', isHidden ? 'false' : 'true');
+    }
+
+    syncToggleState();
+    toggleButton.addEventListener('click', function() {
+        targetInput.type = targetInput.type === 'password' ? 'text' : 'password';
+        syncToggleState();
+    });
+}
+
+async function promptPasskeyUnlock() {
+    if (!supportsBiometricUnlock()) {
+        throw new Error('Pass key sign-in is not supported in this browser.');
+    }
+
+    var credentialId = localStorage.getItem(biometricCredentialStorageKey());
+    if (!credentialId) {
+        throw new Error('No pass key is enrolled on this device. Set it up from Account Settings after signing in.');
+    }
+
+    var challenge = window.crypto.getRandomValues(new Uint8Array(32));
+    await navigator.credentials.get({
+        publicKey: {
+            challenge: challenge,
+            allowCredentials: [{ id: base64UrlToBuffer(credentialId), type: 'public-key' }],
+            userVerification: 'required',
+            timeout: 60000
+        }
+    });
+
+    sessionStorage.setItem('finance-tracker-biometric-unlocked', '1');
+    return true;
+}
+
+initializeTheme();
+
 async function parseResponseData(res) {
     var rawText = await res.text();
     if (!rawText) return {};
@@ -240,6 +373,8 @@ if (authForm) {
     const errorEl       = document.getElementById('auth-error');
     const emailInput    = document.getElementById('email');
     const passwordInput = document.getElementById('password');
+    const passkeyBtn    = document.getElementById('passkey-btn');
+    const passkeyMessage = document.getElementById('passkey-message');
     const forgotSection = document.getElementById('forgot-section');
     const resetSection = document.getElementById('reset-section');
     const authSwitch = document.querySelector('.auth-switch');
@@ -262,6 +397,7 @@ if (authForm) {
     populateCountrySelect(countryInput, getActiveCurrencyInfo().country);
     updateCurrencyPreview(countryInput, currencyPreview);
     if (phoneInput) phoneInput.maxLength = 24;
+    document.querySelectorAll('.password-toggle-btn').forEach(bindPasswordToggle);
 
     function setPageMode(mode) {
         var isForgotMode = mode === 'forgot';
@@ -281,6 +417,14 @@ if (authForm) {
         } else {
             formTitle.textContent = isLogin ? 'Welcome Back' : 'Create Account';
             formSubtitle.textContent = isLogin ? 'Sign in to your account' : 'Fill in your details to get started';
+        }
+
+        if (passkeyBtn) {
+            passkeyBtn.style.display = isLogin ? 'inline-flex' : 'none';
+        }
+
+        if (passkeyMessage && !isLogin) {
+            clearStatusMessage(passkeyMessage);
         }
     }
 
@@ -315,7 +459,25 @@ if (authForm) {
         switchLabel.textContent  = isLogin ? "Don't have an account?" : 'Already have an account?';
         toggleLink.textContent   = isLogin ? ' Register here' : ' Sign in instead';
         errorEl.textContent      = '';
+        if (passkeyMessage) clearStatusMessage(passkeyMessage);
     });
+
+    if (passkeyBtn) {
+        passkeyBtn.addEventListener('click', async function() {
+            clearStatusMessage(passkeyMessage);
+
+            try {
+                await promptPasskeyUnlock();
+                setStatusMessage(passkeyMessage, 'Pass key verified on this device. Continue signing in to open your account.', 'success');
+
+                if (emailInput.value && passwordInput.value) {
+                    authForm.requestSubmit();
+                }
+            } catch (err) {
+                setStatusMessage(passkeyMessage, err.message || 'Pass key sign-in is unavailable.', 'error');
+            }
+        });
+    }
 
     if (countryInput) {
         countryInput.addEventListener('change', function() {
@@ -787,40 +949,12 @@ if (dashboardContainer) {
         }
     }
 
-    function biometricCredentialStorageKey() {
-        return 'finance-tracker-biometric-credential-id';
-    }
-
     function hasBiometricSessionUnlock() {
         try {
             return sessionStorage.getItem('finance-tracker-biometric-unlocked') === '1';
         } catch {
             return false;
         }
-    }
-
-    function supportsBiometricUnlock() {
-        return typeof window.PublicKeyCredential !== 'undefined' && !!navigator.credentials;
-    }
-
-    function bufferToBase64Url(buffer) {
-        var bytes = new Uint8Array(buffer);
-        var binary = '';
-        for (var i = 0; i < bytes.byteLength; i += 1) {
-            binary += String.fromCharCode(bytes[i]);
-        }
-        return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-    }
-
-    function base64UrlToBuffer(value) {
-        var normalized = String(value || '').replace(/-/g, '+').replace(/_/g, '/');
-        while (normalized.length % 4) normalized += '=';
-        var binary = atob(normalized);
-        var bytes = new Uint8Array(binary.length);
-        for (var i = 0; i < binary.length; i += 1) {
-            bytes[i] = binary.charCodeAt(i);
-        }
-        return bytes.buffer;
     }
 
     function hideBiometricOverlay() {
@@ -1179,12 +1313,6 @@ if (dashboardContainer) {
                 applyProfileToUI(profileResult.user);
             }
 
-            if (currentUserProfile.biometricEnabled && !hasBiometricSessionUnlock()) {
-                showBiometricOverlay();
-                return;
-            }
-
-            hideBiometricOverlay();
             await loadDashboard();
             await loadReportMonths();
             await loadArchivedTransactions();

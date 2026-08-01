@@ -443,6 +443,23 @@ if (authForm) {
         }
     }
 
+    async function submitAuthFormAfterPasskey() {
+        if (!isLogin) return false;
+
+        for (var attempt = 0; attempt < 4; attempt += 1) {
+            await new Promise(function(resolve) {
+                window.setTimeout(resolve, attempt === 0 ? 0 : 100);
+            });
+
+            if (emailInput.value && passwordInput.value) {
+                authForm.requestSubmit();
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     toggleLink.addEventListener('click', function(e) {
         e.preventDefault();
         if (pageMode === 'forgot' || pageMode === 'reset') return;
@@ -468,10 +485,10 @@ if (authForm) {
 
             try {
                 await promptPasskeyUnlock();
-                setStatusMessage(passkeyMessage, 'Pass key verified on this device. Continue signing in to open your account.', 'success');
+                setStatusMessage(passkeyMessage, 'Pass key verified on this device. Signing you in...', 'success');
 
-                if (emailInput.value && passwordInput.value) {
-                    authForm.requestSubmit();
+                if (!(await submitAuthFormAfterPasskey())) {
+                    setStatusMessage(passkeyMessage, 'Pass key was verified, but the email and password fields still need to be filled in before we can sign you in.', 'error');
                 }
             } catch (err) {
                 setStatusMessage(passkeyMessage, err.message || 'Pass key sign-in is unavailable.', 'error');

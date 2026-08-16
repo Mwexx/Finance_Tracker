@@ -9,7 +9,7 @@
     "smoke:transactions": "node scripts/smoke-transactions.js"
   },
   "engines": {
-    "node": "24.19.x"
+    "node": "24.x"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

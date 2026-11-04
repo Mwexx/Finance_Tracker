@@ -31,11 +31,15 @@ function broadcastPayload(body) {
 }
 
 async function getRecipients() {
-    return User.find({ accountStatus: 'active', email: { $exists: true, $ne: '' } })
+    const users = await User.find({
+        $or: [{ accountStatus: 'active' }, { accountStatus: { $exists: false } }]
+    })
         .select('_id email name')
         .sort({ _id: 1 })
         .limit(MAX_BROADCAST_RECIPIENTS)
         .lean();
+
+    return users.filter((user) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(user.email || '').trim()));
 }
 
 exports.summary = async (req, res) => {

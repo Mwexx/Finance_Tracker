@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Finance Tracker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dashboard-page">
+    <nav class="navbar">
+        <div class="nav-brand">&#128176; Finance Tracker Admin</div>
+        <div class="nav-user">
+            <span id="admin-greeting">Loading...</span>
+            <a class="btn-secondary btn-auto" href="dashboard.html">User dashboard</a>
+            <button id="admin-logout-btn" class="btn-danger-sm" type="button">Logout</button>
+        </div>
+    </nav>
+
+    <main class="main-container admin-main">
+        <section class="notice-banner admin-banner">
+            <div>
+                <h2>System control center</h2>
+                <p>Manage accounts, respond to feedback, and send carefully reviewed announcements.</p>
+            </div>
+        </section>
+
+        <section class="summary-cards admin-summary">
+            <div class="card summary-card"><div class="card-icon">&#128100;</div><div class="card-info"><p class="card-label">Registered users</p><h2 id="admin-users-count">0</h2></div></div>
+            <div class="card summary-card"><div class="card-icon">&#9989;</div><div class="card-info"><p class="card-label">Active users</p><h2 id="admin-active-count">0</h2></div></div>
+            <div class="card summary-card"><div class="card-icon">&#128172;</div><div class="card-info"><p class="card-label">New feedback</p><h2 id="admin-feedback-count">0</h2></div></div>
+        </section>
+
+        <section class="admin-grid">
+            <div class="card form-card">
+                <h3 class="card-title">Send an important email</h3>
+                <p class="card-copy">Preview first. Messages are sent only after you type SEND. The system caps and rate-limits broadcasts to prevent accidental noise.</p>
+                <form id="broadcast-form" novalidate>
+                    <div class="field-group"><label for="broadcast-subject">Subject</label><input id="broadcast-subject" maxlength="140" required></div>
+                    <div class="field-group"><label for="broadcast-message">Message</label><textarea id="broadcast-message" maxlength="10000" rows="8" required></textarea></div>
+                    <button class="btn-secondary btn-auto" type="button" id="broadcast-preview-btn">Preview recipients</button>
+                    <p id="broadcast-preview" class="info-text"></p>
+                    <div class="field-group" id="broadcast-confirm-group" style="display:none;"><label for="broadcast-confirmation">Type SEND to confirm</label><input id="broadcast-confirmation" autocomplete="off"></div>
+                    <button class="btn-primary" id="broadcast-send-btn" type="submit" disabled>Send broadcast</button>
+                    <p id="broadcast-status" class="info-text"></p>
+                </form>
+            </div>
+
+            <div class="card form-card">
+                <h3 class="card-title">User accounts</h3>
+                <div class="field-group"><label for="user-search">Search users</label><input id="user-search" placeholder="Name or email"></div>
+                <div class="table-wrapper"><table><thead><tr><th>User</th><th>Role</th><th>Status</th><th>Action</th></tr></thead><tbody id="admin-users-table"><tr><td colspan="4" class="empty-msg">Loading...</td></tr></tbody></table></div>
+            </div>
+        </section>
+
+        <section class="card form-card">
+            <h3 class="card-title">User feedback</h3>
+            <div class="table-wrapper"><table><thead><tr><th>From</th><th>Subject</th><th>Message</th><th>Status</th><th>Action</th></tr></thead><tbody id="admin-feedback-table"><tr><td colspan="5" class="empty-msg">Loading...</td></tr></tbody></table></div>
+        </section>
+    </main>
+    <script src="main.js"></script>
+    <script src="admin.js"></script>
+</body>
+</html>

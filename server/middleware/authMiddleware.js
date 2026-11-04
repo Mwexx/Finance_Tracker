@@ -1,7 +1,8 @@
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
+const User = require('../models/User');
 
-module.exports = function (req, res, next) {
+module.exports = async function (req, res, next) {
     // Get token from header
     const token = String(req.header('x-auth-token') || '').trim();
 
@@ -18,6 +19,10 @@ module.exports = function (req, res, next) {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         if (!decoded || !decoded.user || !decoded.user.id || !mongoose.Types.ObjectId.isValid(decoded.user.id)) {
             return res.status(401).json({ msg: 'Token is not valid' });
+        }
+        const user = await User.findById(decoded.user.id).select('accountStatus');
+        if (!user || (user.accountStatus && user.accountStatus !== 'active')) {
+            return res.status(401).json({ msg: 'Account is suspended or unavailable' });
         }
         req.user = decoded.user;
         next();

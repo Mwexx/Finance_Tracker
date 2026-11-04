@@ -36,6 +36,7 @@
             <span id="user-greeting">Loading...</span>
             <button id="theme-toggle-btn" class="btn-secondary btn-auto nav-icon-btn" type="button" aria-label="Toggle theme" title="Toggle theme">&#9728;</button>
             <a id="settings-btn" class="btn-secondary btn-auto nav-icon-btn" href="setting.html" aria-label="Open account settings" title="Account settings">&#9881;</a>
+            <a id="admin-btn" class="btn-secondary btn-auto" href="admin.html" style="display:none;">Admin</a>
             <button id="logout-btn" class="btn-danger-sm">Logout</button>
         </div>
     </nav>
@@ -180,6 +181,17 @@
             </div>
         </section>
 
+        <section class="card form-card">
+            <h3 class="card-title">Send feedback</h3>
+            <p class="card-copy">Tell us about a problem or suggest an improvement. Our team will review it.</p>
+            <form id="feedback-form" novalidate>
+                <div class="field-group"><label for="feedback-subject">Subject</label><input id="feedback-subject" maxlength="120" required></div>
+                <div class="field-group"><label for="feedback-message">Message</label><textarea id="feedback-message" maxlength="2000" rows="5" required></textarea></div>
+                <button class="btn-primary btn-auto" type="submit">Send feedback</button>
+                <p id="feedback-status" class="info-text"></p>
+            </form>
+        </section>
+
         <section class="card form-card archive-card">
             <h3 class="card-title">Archive Transactions</h3>
             <p class="card-copy">Archive a whole month or a custom date range to focus on a specific period of income and spending. You can restore archived items anytime.</p>
@@ -265,5 +277,6 @@
     </div>
 
     <script src="main.js"></script>
+    <script src="feedback.js"></script>
 </body>
 </html>

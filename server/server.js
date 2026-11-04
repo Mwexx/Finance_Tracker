@@ -316,7 +316,7 @@ function sendFrontendFile(res, fileName) {
     return true;
 }
 
-app.get(['/index.html', '/dashboard.html', '/setting.html', '/main.js', '/setting.js', '/style.css'], (req, res) => {
+app.get(['/index.html', '/dashboard.html', '/setting.html', '/admin.html', '/main.js', '/setting.js', '/feedback.js', '/admin.js', '/style.css'], (req, res) => {
     const fileName = path.basename(req.path);
 
     if (!sendFrontendFile(res, fileName)) {
@@ -334,6 +334,8 @@ const authRoutes = require('./routes/authRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const budgetRoutes = require('./routes/budgetRoutes');
 const reportRoutes = require('./routes/reportRoutes');
+const feedbackRoutes = require('./routes/feedbackRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 // ============================================
 // 6. REGISTER API ROUTES
@@ -359,6 +361,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/budgets', budgetRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/feedback', feedbackRoutes);
+app.use('/api/admin', adminRoutes);
 
 // API Health Check Endpoint
 app.get('/api/health', (req, res) => {
@@ -557,4 +561,3 @@ if (require.main === module) {
 
 // Export app for Vercel serverless and tests.
 module.exports = app;
-

@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node server/server.js",
     "dev": "node --watch server/server.js",
-    "smoke:transactions": "node scripts/smoke-transactions.js"
+    "smoke:transactions": "node scripts/smoke-transactions.js",
+    "email:apology:preview": "node scripts/send-apology-email.js",
+    "email:apology:send": "node scripts/send-apology-email.js --send"
   },
   "engines": {
     "node": "24.x"

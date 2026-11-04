@@ -65,10 +65,16 @@ function parseBoolean(value) {
 }
 
 function buildUserProfile(user) {
+    const configuredAdmins = String(process.env.ADMIN_EMAILS || '')
+        .split(',')
+        .map((email) => email.trim().toLowerCase())
+        .filter(Boolean);
     return {
         id: user.id,
         name: user.name,
         email: user.email,
+        role: user.role === 'admin' || configuredAdmins.includes(String(user.email || '').toLowerCase()) ? 'admin' : 'user',
+        accountStatus: user.accountStatus || 'active',
         country: user.country || 'Kenya',
         phoneNumber: user.phoneNumber || '',
         currencyCode: user.currencyCode || 'KES',

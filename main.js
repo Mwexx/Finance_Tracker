@@ -921,6 +921,10 @@ if (dashboardContainer) {
     function applyProfileToUI(profile) {
         profile = profile || {};
         currentUserProfile = profile;
+        var adminButton = document.getElementById('admin-btn');
+        if (adminButton) {
+            adminButton.style.display = profile.role === 'admin' ? 'inline-block' : 'none';
+        }
         setUser(profile);
 
         if (profile.name) {

@@ -10,8 +10,11 @@
           "index.html",
           "dashboard.html",
             "setting.html",
-          "main.js",
-            "setting.js",
+            "admin.html",
+            "main.js",
+              "setting.js",
+            "admin.js",
+            "feedback.js",
           "style.css"
         ]
       }

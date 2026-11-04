@@ -59,7 +59,7 @@ const sendEmail = async (options) => {
     } catch (error) {
         const safeHost = smtp.host ? smtp.host.slice(0, 80) : 'unknown';
         console.error(`Error sending email via host ${safeHost}:`, error.message);
-        return false;
+        throw error;
     }
 };
 

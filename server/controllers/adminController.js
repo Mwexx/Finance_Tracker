@@ -31,25 +31,26 @@ function broadcastPayload(body) {
 }
 
 async function getRecipients() {
-    const users = await User.find({
-        $or: [{ accountStatus: 'active' }, { accountStatus: { $exists: false } }]
-    })
+    const users = await User.find({})
         .select('_id email name')
         .sort({ _id: 1 })
-        .limit(MAX_BROADCAST_RECIPIENTS)
         .lean();
 
-    return users.filter((user) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(user.email || '').trim()));
+    return users
+        .filter((user) => (!user.accountStatus || user.accountStatus === 'active')
+            && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(user.email || '').trim()))
+        .slice(0, MAX_BROADCAST_RECIPIENTS);
 }
 
 exports.summary = async (req, res) => {
     try {
-        const [users, activeUsers, newFeedback, totalFeedback] = await Promise.all([
+        const [users, userStatuses, newFeedback, totalFeedback] = await Promise.all([
             User.countDocuments(),
-            User.countDocuments({ $or: [{ accountStatus: 'active' }, { accountStatus: { $exists: false } }] }),
+            User.find({}).select('accountStatus').lean(),
             Feedback.countDocuments({ status: 'new' }),
             Feedback.countDocuments()
         ]);
+        const activeUsers = userStatuses.filter((user) => !user.accountStatus || user.accountStatus === 'active').length;
         res.json({ users, activeUsers, newFeedback, totalFeedback });
     } catch (error) {
         console.error('Admin summary error:', error.message);

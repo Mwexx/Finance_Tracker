@@ -14,15 +14,16 @@ if (adminPage) {
     }
 
     async function adminRequest(endpoint, method, body) {
-        try {
-            return await apiRequest('/admin' + endpoint, method, body);
-        } catch (error) {
-            if (/admin access|authorization|token/i.test(error.message)) {
-                clearSession();
-                goToApp('/');
-            }
-            throw error;
-        }
+        return apiRequest('/admin' + endpoint, method, body);
+    }
+
+    function showAccessError(error) {
+        const errorPanel = document.getElementById('admin-access-error');
+        const message = document.getElementById('admin-access-error-message');
+        if (errorPanel) errorPanel.style.display = 'block';
+        if (message) message.textContent = error.message || 'This account does not have administrator access.';
+        const dashboardSections = document.querySelectorAll('.admin-main > :not(#admin-access-error)');
+        dashboardSections.forEach((section) => { section.style.display = 'none'; });
     }
 
     function renderUsers() {
@@ -64,6 +65,10 @@ if (adminPage) {
             renderUsers();
             renderFeedback(feedbackResult.feedback || []);
         } catch (error) {
+            if (/admin access required/i.test(error.message)) {
+                showAccessError(error);
+                return;
+            }
             setStatus(error.message || 'Could not load admin data.', 'error');
         }
     }

@@ -17,6 +17,12 @@
     </nav>
 
     <main class="main-container admin-main">
+        <section id="admin-access-error" class="card form-card" style="display:none;" role="alert">
+            <h2>Admin access is not enabled for this account</h2>
+            <p id="admin-access-error-message" class="card-copy"></p>
+            <p class="card-copy">Set <code>ADMIN_EMAILS</code> in the deployment environment to the email address of an existing administrator account, then sign in again.</p>
+            <a class="btn-secondary btn-auto" href="dashboard.html">Return to user dashboard</a>
+        </section>
         <section class="notice-banner admin-banner">
             <div>
                 <h2>System control center</h2>
